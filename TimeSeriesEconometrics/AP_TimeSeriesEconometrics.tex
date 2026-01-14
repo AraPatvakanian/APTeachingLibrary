@@ -1,0 +1,1889 @@
+\documentclass[10pt, aspectratio=169, leqno, handout]{beamer}
+% \usetheme{APLaTeXFormatBeamer}
+\usepackage{Auxiliary/beamerthemeAPLaTeXFormatBeamer}
+\usetikzlibrary{external}
+\tikzexternalize[prefix=TikZ/]
+\addbibresource{Auxiliary/bibliography.bib}
+\graphicspath{{Figures}}
+
+\title[Time Series: VARs \& LPs]{\textbf{\textsc{Time Series Econometrics}}\\ \normalsize\textbf{Vector Autoregressions \& Local Projections}}
+\author[Ara Patvakanian]{Ara Patvakanian\thanks{\footnotesize \fontfamily{cmr}\selectfont Contact: \href{mailto:arap15@upenn.edu}{arap15@upenn.edu}. The original version of this presentation was prepared for an employer; the views expressed herein are my own and do not necessarily represent those of the employer.}}
+\institute[]{}
+\date[]{First Version: April 2025 \\ This Version: January 2026} % \\ Click \href{https://www.youtube.com/watch?v=xvFZjo5PgG0&list=RDxvFZjo5PgG0&index=1}{\textcolor{blue}{HERE}} for the latest version. \vspace{-2ex}}
+
+\begin{document}
+\initial
+\contents
+
+\section{Time Series Data \& Models}
+\subsection{Growth Rates}
+\begin{frame}
+\label{frame:growth_rates}
+\frametitle{Growth Rates}
+\APButton{frame:data_types}{Terminology \& Notation}{1}
+With time series data, we are usually interested in the rate of change of the data series through time--the growth rate.\CR
+The growth rate between any two observations at times $t-1$ and $t$, denoted by $g_t$, is given by the formula
+\begin{alignat}{2}\label{equation:growth_rate}
+g_t \coloneq \frac{x_t-x_{t-1}}{x_{t-1}} = \frac{x_t}{x_{t-1}}-1\end{alignat}
+which derives from the multiplicative growth relationship 
+\begin{alignat}{2}\label{equation:growth_relationship}
+x_{t} = (1+g_t)x_{t-1}.
+\end{alignat}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Growth Rates}
+    \framesubtitle{Continued}
+    Having a series of growth rates requires an ``initial'' value of the original series at a time period that overlaps with the growth rates. Once you have this value, you can recover the entirety of the original series.\CR
+    Suppose that we have $x_0$ and corresponding growth rates $\left\{g_t\right\}_{t=1}^T$. Then we can recover $x_{\tau}$ for $\tau>0$ by multiplying $x_0$ by the cumulative product of the growth rates:
+    \begin{align}\label{equation:product_formula}
+    x_\tau = x_0\prod_{t=1}^{\tau}(1+g_t).
+    \end{align}
+    Going back in time, we symmetrically have:
+    \begin{align*}x_{-\tau} = x_0\prod_{t=-1}^{-\tau}\frac{1}{(1+g_{t+1})}.\end{align*}
+\end{frame}
+
+\begin{frame}
+\frametitle{Levels and Log-Levels}
+    \label{frame:log_differences}
+    \APButton{frame:growth_rates_proof}{Proof of \eqref{equation:log_difference}}{.8}
+    \APButton{frame:cumulating_log_differences}{Cumulating Log Differences}{1}
+    Time series data is typically given in levels. To transform it into log-levels, simply take the logarithm of the variable.\footnote{Note that the domain of the logarithm function is $\mathbb{R}^+$. Most measured economic quantities fall inside this subset.}
+    $$\left\{x_t\right\}_{t=0}^T \mapsto \left\{\ln(x_t)\right\}_{t=0}^T$$
+    Working with log-levels is very convenient because the first difference of a time series in log-levels, known as the log-difference, approximately equals the growth rate when the period-by-period growth rate is near 0.
+    \begin{alignat*}{2}
+        \ln(x_{t})-\ln(x_{t-1}) & = \ln(1+g_t) \approx g_t \quad \text{(by Taylor expanding around $g_t\approx0$)}
+    \end{alignat*}
+    Combining, we get the log-difference approximation of the growth rate, which is often denoted as $\Delta \ln(x_t)$.
+    \begin{alignat}{2}\label{equation:log_difference}
+        g_t & \approx \Delta \ln(x_t) \coloneq \ln(x_{t})-\ln(x_{t-1})
+    \end{alignat}
+    Another nice result from log-differences is, for any two periods, $0$ and $\tau>0$,
+    \begin{alignat}{2}
+    \ln(x_\tau)-\ln(x_0) = \sum_{t=1}^{\tau}\left[\Delta \ln\left(x_t\right)\right] = \sum_{t=1}^{\tau}\left[\ln(x_t)-\ln(x_{t-1})\right]
+    \end{alignat}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Why Do We Use Log-Differences?}
+    We often use log-differences instead of actual growth rates in practical applications because they
+    \begin{itemize}
+        \item Are symmetric while percent changes are not; 
+        \item Downsize (positive) outliers; and
+        \begin{itemize}
+            \item In log-differences, cumulative changes of the same magnitude in different directions cancel out: $-10 \text{ log p.p.} + 10 \text{ log p.p.} = 0\%$ cumulative change.
+            \item With percents, cumulative changes must be multiplied and are thus not symmetric: A $+10\%$ increase followed by a $10\%$ decrease is $1.1 \times 0.9  = 0.99$, a $1\%$ cumulative decrease.
+        \end{itemize}
+        \item Enable log-log regression specifications where the slope coefficient is interpreted as a percent.
+    \end{itemize}
+    We will exploit log-differences later when computing local projections.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Final Remarks on Log-Differences}
+    Log-differences also makes growth rates for a product or quotient of two variables\footnote{The latter shows up when one is calculating the growth rate of a per-capita variable, which is an aggregate quantity divided by the population.} quite easy to compute. Defining $x_t \coloneq \frac{y_t}{z_t}$ and substituting it into $g_t \approx \ln(x_{t})-\ln(x_{t-1})$ yields
+    \begin{alignat*}{2}
+        g_t \approx \Delta \ln \left( x_t \right) & = \Delta \ln \left( \frac{y_{t}}{z_{t}} \right) \\
+        & = \ln\left(\frac{y_{t}}{z_{t}}\right) - \ln\left(\frac{y_{t-1}}{z_{t-1}}\right) \\
+        & = \ln\left(y_t\right) - \ln(z_t) - \ln(y_{t-1}) + \ln(z_{t-1}) \\
+        & = \left[\ln\left(y_t\right) - \ln(y_{t-1})\right] - \left[\ln(z_t) - \ln(z_{t-1})\right] \\
+        & = \Delta\ln(y_{t})-\Delta\ln(z_t)
+    \end{alignat*}
+    which is simply a difference of log-differences (growth rates).
+    \CR
+    
+    Finally, remember that the Taylor approximation holds only for for values of $g_t$ close to 0. If the actual growth rate is large away from 0 (towards $\pm\infty$), we can no longer use log-differences to approximate the growth rate as in \eqref{equation:log_difference}.
+    % \item Using the natural logarithm carries the implicit assumption that between any two $t-1$ and $t$, the log-difference $\ln(x_t)-\ln(x_{t-1})$ is percent by which $\left\{x\right\}$ increases \textit{if it were to compound continuously between $t-1$ and $t$}. This arises from the definition and properties of Euler's number:
+    % \begin{alignat*}{1}
+    % e \coloneq \lim_{n\rightarrow\infty}\left(1+\frac{1}{n}\right)^{n} &  \equiv \sum_{n=0}^{\infty}\frac{1}{n!} \\
+    % \text{(from \eqref{equation:growth_relation})} \quad \ln\left(\frac{x_t}{x_{t-1}}\right) & = \ln(1+g_t) \approx g_t \iff \frac{x_t}{x_{t-1}} \approx \exp\left(g_t\right)
+    % \end{alignat*}
+\end{frame}
+
+\subsection{Annualization}
+\begin{frame}
+    \frametitle{Why Annualize?}
+    We can calculate growth rates between any two periods in the data (for example, $t$ and $t+h$). The smallest period for which we can calculate growth rates for is that of the data itself ($t$ and $t+1$). 
+    
+    We need a common frame of reference to compare growth rates.
+    \begin{itemize}
+        \item For example, by how much do you think prices or GDP should grow in a month? How much should they grow by in a year?
+        \item It's easier for the sake of comparison to benchmark on (and target) rates over a commonly-accepted time frame over which the variable in question grows by: 2\% inflation, 3\% GDP growth, et cetera.
+        \item Annualizing recasts growth rates in terms of similar time frequency: ``If the time series were to grow at the same rate over a year, what would the growth rate be?''
+    \end{itemize}
+    You can use the following method to ``annualize'' to any frequency in the data you wish (such as to 2-year growth rates). Here we will only cover annualizing monthly and quarterly data, although the general formula is provided, too.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Generalized Annualization Formulas}
+    \label{frame:annualizing_growth_rates}
+    The growth rate between observations indexed at arbitrary $t$ and $t-h$ and annualized over $H$-observation frequency is given by 
+    \begin{alignat}{2}
+    \label{equation:annualization}
+    g_t^* &= \left(\frac{x_t}{x_{t-h}}\right)^\frac{H}{h}-1. \\
+    \intertext{The counterpart to this formula in logarithms is given by }
+    \label{equation:annualization_logs}
+    g_t^* &\approx \frac{H}{h}(\ln(x_t)-\ln(x_{t-h})).
+    \end{alignat}
+    
+    \APButton{frame:generalized_annualization}{Derivations}{0.93}
+    \APButton{frame:annualizing_proof}{Proof}{1}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example Stata Code for Annualizing Monthly Data}
+    Calculate PCE inflation rate at different horizons from the monthly PCE price index release, \verb|PCE|. We directly apply the formula from above with $H=12$ since there are 12 months in a year.
+\begin{verbatim}
+tsset date // Monthly
+gen PCE_12m = ((PCE/L12.PCE)-1)*100         // Annual
+gen PCE_1m = ((PCE/L1.PCE)^(12)-1)*100      // 1-month annualized 
+gen PCE_3m = ((PCE/L3.PCE)^(4)-1)*100       // 3-month annualized 
+gen PCE_dlog_3m = (log(PCE)-log(L3.PCE))*4*100 
+    // 3-month annualized using log-differences
+\end{verbatim}
+We multiply by $100$ to express these growth rates as percents.
+
+You can calculate the ``error'' between the actual growth rate and its log-difference approximation. Note that the error is largest when the actual growth rate is large.
+\begin{verbatim}
+gen difference_3m = PCE_3m - PCE_log_3m    
+br date PCE_3m PCE_log_3m difference_3m
+\end{verbatim}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Actual vs. Log-Difference Growth Rates}
+    \begin{alignat*}{2}
+    \pi_t = \frac{\text{PCE}_t}{\text{PCE}_{t-1}}-1 \quad \quad \pi_t \approx \log(\text{PCE}_t) - \log(\text{PCE}_{t-1})
+    \end{alignat*}\vspace{-.75cm}
+    \begin{figure}
+        \caption*{}
+        \includegraphics[scale=.17,keepaspectratio,trim={0 0 0 0},clip]{PCE_actual_vs_dlog_3m.pdf}
+    \end{figure}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example Stata Code for Annualizing Quarterly Data}
+    Calculate the annual and annualized 1-quarter, 2-quarter, 2-year, and 4-year (nominal/real) GDP growth rates from the quarterly (nominal/real) GDP release, \verb|GDP|. We again apply the formula while noting that now $H=4$ since there are 4 quarters in a year.
+\begin{verbatim}
+tsset date_q // Quarterly
+foreach hh of numlist 1 2 4 8 16 { // Convenient for-loop implementation
+    gen GDP_`hh'q = ((GDP/L`hh'.GDP)^(4/`hh')-1)*100
+    gen GDP_dlog_`hh'q = (log(GDP)-log(L`hh'.GDP))*(4/`hh')*100
+}
+\end{verbatim}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Remarks on Annualization}
+    \begin{enumerate}
+        \item You can annualize ``up'', expressing monthly growth rates as annualized growth rates, or annualize ``down'', expressing 2-year growth rates as annualized growth rates. In both cases, the annualized growth rates are directly comparison because they are, by definition, expressed as though the same rate over the original period were calculated over a year.
+        \item Here, we are using the term ``annualize'' to refer to any transformation that expresses growth rates calculated over two disparate periods to the same period. The latter period does not necessarily need to be yearly. We usually annualize monthly or quarterly growth rates. For instance, we can also ``annualize'' (written here in quotes as there is no general term) second-by-second and minute-by-minute data to daily.
+        \item An annual growth rate should not be confused with an annualized growth rate. The former is calculated over a time period spanning a year ($H=12$ for monthly data) whereas the latter is a growth calculated over a time period shorter or longer than a year expressed as though it grew over a year. However, an annualized growth rate is directly comparable with an annual growth rate whereas a non-annualized growth rate is not.
+        \begin{itemize}
+        \item As such, it doesn't make sense to annualize an annual rate as the latter is already calculated over the base period.
+        \end{itemize}
+    \end{enumerate}
+\end{frame}
+
+\subsection{Autoregressive Models}
+\begin{frame}
+    \frametitle{Basic Time Series Models}
+    In this section we will briefly cover the following time series models:
+    \begin{itemize}
+        \item Autoregressions -- AR(p) 
+        \item Random Walks (With and Without Drift) -- RW
+    \end{itemize}
+    There are many more time series models. A common trend in time series econometrics is that simpler models are special cases of more general models.
+    \begin{itemize}
+        \item Moving Average Models -- MA(q)
+        \item Integrated Models -- I(d)
+        \item Autoregressive Moving Average Models -- ARMA(p,q)
+        \begin{itemize}
+            \item Combines the AR(p) and MA(q) models
+        \end{itemize}
+        \item Autoregressive Integrated Moving Average Models -- ARIMA(p,d,q)
+        \begin{itemize}
+            \item Combines the AR(p), I(d), and MA(q) models
+        \end{itemize}
+        \item (Generalized) Autoregressive Conditional Heteroskedasticity -- ARCH(q) \& GARCH(p,q)
+    \end{itemize}
+    Note that many of these models can be estimated using both frequentist (maximum likelihood, including OLS) and Bayesian (MCMC: Gibbs sampling, Metropolis-Hastings) methods.
+\end{frame}
+
+\begin{frame}
+    \label{frame:AR_processes}
+    \APButton{frame:AR1_unconditional_mean}{Proof: $\mathbb{E}\left[y_t\right]$}{0.9}
+    \APButton{frame:AR1_unconditional_variance}{Proof: $\mathbb{V}\left[y_t\right]$}{1}
+    \frametitle{Autoregressive Processes -- AR(p)}
+    Autoregressive (AR) processes describe the dynamics of a time series as an affine relationship between each value and its lags. The simplest of these is the AR(1) model:
+    \begin{alignat*}{2}
+        y_t &= \theta + \phi y_{t-1} + \varepsilon_t, \quad &\varepsilon_t \underset{\text{I.I.D.}}{\sim} \mathcal{N}(0, \sigma^2_\varepsilon)
+    \intertext{The AR(1) model can be generalized further by incorporating more lags of $y_t$. The more general AR(p) models each $y_t$ as a linear combination of $p$ of its lags.}
+    y_t &= \theta + \sum_{\tau=1}^{p}\phi_py_{t-\tau}+\varepsilon_t, \quad &\varepsilon_t \underset{\text{I.I.D.}}{\sim} \mathcal{N}(0, \sigma^2_\varepsilon)
+    \end{alignat*}
+    These models can be directly estimated using OLS. Note that the unconditional moments of the AR(1) process when $0<\phi<1$ are given as follows.
+    \begin{alignat*}{2}
+    \mathbb{E}\left[y_t\right] & = \frac{\theta}{(1-\phi)}\\
+    \mathbb{V}\left[y_t\right] & = \frac{\sigma^2_\varepsilon}{(1-\phi^2)}
+    \end{alignat*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Random Walks without Drift}
+    Random walks are themselves special cases of AR models where $\phi=1$.
+    \begin{alignat*}{1}
+    y_t &= y_{t-1} + \varepsilon_t \\ 
+    \varepsilon_t &\underset{\text{I.I.D.}}{\sim} \mathcal{N}(0, \sigma^2_\varepsilon)
+    \end{alignat*}
+    The model assumes that each subsequent value in the time series is some error added to the previous value. Note that all random walks have a unit root (since $\beta=1$) and thus there is no mean-reversion in a random walk.
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Random Walks with Drift}
+    A random walk with drift is a random walk with an intercept term; or, equivalently, a random walk without drift is a special case of the random walk with drift model where $\theta=0$.
+    \begin{alignat*}{1}
+    y_t &= \theta + y_{t-1} + \varepsilon_t \\ 
+    \varepsilon_t &\underset{\text{I.I.D.}}{\sim} \mathcal{N}(0, \sigma^2_\varepsilon) \\
+    \theta &\neq 0
+    \end{alignat*}
+    You can test whether your data generating process is not a random walk (that is, it does not contain a ``unit root'') using Dickey-Fuller or KPSS tests.
+\end{frame}
+
+\begin{frame}
+    \frametitle{AR(1) \& Random Walks}
+    Eugene Fama famously described stock market prices as a random walk (see \textcite{Fama1965}). Here are some stochastic simulations of these processes.
+    \begin{figure}[!t]
+        \centering
+        \begin{subfigure}{.3\linewidth}{
+            \caption{AR(1) with $\beta = 0.9$} \vspace{0.35cm}
+            \includegraphics[width = \linewidth, keepaspectratio, trim={0 0 0 0}, clip]{AR1.pdf}
+        } \end{subfigure}
+        \begin{subfigure}{.3\linewidth}{
+            \caption{Without Drift} \vspace{0.35cm}
+            \includegraphics[width = \linewidth, keepaspectratio, trim={0 0 0 0}, clip]{RW.pdf}
+        } \end{subfigure}
+        \begin{subfigure}{.3\linewidth}{
+            \caption{With Drift} \vspace{0.35cm}
+            \includegraphics[width = \linewidth, keepaspectratio, trim={0 0 0 0}, clip]{RWD.pdf}
+        } \end{subfigure}
+    \end{figure}
+\end{frame}
+
+% \begin{frame}
+%     \frametitle{Autoregressive Moving Average Models -- ARMA(p,q)}
+%     % \begin{alignat*}{1}
+%     % y_t &= \beta_0 + \sum_{\tau=1}^{p}\beta_py_{t-\tau}+\varepsilon_t \\ 
+%     % \varepsilon_t &\underset{\text{I.I.D.}}{\sim} \mathcal{N}(0, \sigma^2_\varepsilon)
+%     % \end{alignat*}
+%     % \begin{itemize}
+%     % \item{Simplest: Model each $y_t$ as a linear combination of $p$ of its lags.}
+%     % \item{Estimate using OLS.}
+%     % \end{itemize}
+% \end{frame}
+
+% \begin{frame}
+%     \frametitle{Autoregressive Integrated Moving Average Models -- ARIMA(p,d,q)}
+%     % \begin{alignat*}{1}
+%     % y_t &= \beta_0 + \sum_{\tau=1}^{p}\beta_py_{t-\tau}+\varepsilon_t \\ 
+%     % \varepsilon_t &\underset{\text{I.I.D.}}{\sim} \mathcal{N}(0, \sigma^2_\varepsilon)
+%     % \end{alignat*}
+%     % \begin{itemize}
+%     % \item{Simplest: Model each $y_t$ as a linear combination of $p$ of its lags.}
+%     % \item{Estimate using OLS.}
+%     % \end{itemize}
+% \end{frame}
+
+\subsection{Potential Difficulties in Time Series}
+\begin{frame}
+    \frametitle{Stationary Processes}
+    A stochastic process such as a time series whose moments (usually mean or variance) does not change is called stationary.
+    \begin{figure}[!t]
+        \centering
+        \begin{subfigure}{.24\linewidth}{
+            \caption{Stationary} \vspace{0.35cm}
+            \includegraphics[width = \linewidth, keepaspectratio, trim={0 0 0 0}, clip]{stationary.pdf}
+        }
+        \end{subfigure}
+        \begin{subfigure}{.24\linewidth}{
+            \caption{Trend} \vspace{0.35cm}
+            \includegraphics[width = \linewidth, keepaspectratio, trim={0 0 0 0}, clip]{trend.pdf}
+        }
+        \end{subfigure}
+        \begin{subfigure}{.24\linewidth}{
+            \caption{Mean Shift} \vspace{0.35cm}
+            \includegraphics[width = \linewidth, keepaspectratio, trim={0 0 0 0}, clip]{step.pdf}
+        }
+        \end{subfigure}
+        \begin{subfigure}{.24\linewidth}{
+            \caption{Variance Shift} \vspace{0.35cm}
+            \includegraphics[width = \linewidth, keepaspectratio, trim={0 0 0 0}, clip]{variance.pdf}
+        }
+        \end{subfigure}
+    \end{figure}
+    Figures (c) and (d) depict regime shifts or switches. You can use statistical tests to check for nonstationarity.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Autocorrelation (Serial Correlation)}
+    Time series observations tend to be correlated across time with past observations: Intuitively, it is more likely that this month's inflation reading is related to last month's reading more than that from years ago. \CR
+    When the model's errors (residuals) are correlated over time, we might be omitted lagged effects or other time-varying variables from the model. Further, these errors may have time-varying variance; that is, $\varepsilon_t\sim\mathcal{N}(0,\sigma_{\varepsilon,t}^2)$. ARCH and GARCH models (not covered here) were developed to deal with this issue. \CR
+    If the model is misspecified, the typical exclusion requirement necessary for OLS might not hold which biases standard error estimates: $\mathbb{E}[\varepsilon_t \varepsilon_{t+1}] \neq 0$. 
+\end{frame}
+
+\begin{frame}
+    \frametitle{Autocorrelation of Residuals}
+    To check this, plot the autocorrelation function of the model's residuals.
+    \begin{columns}
+    \begin{column}{0.45\textwidth}
+    \begin{itemize}
+        \item Note here that the autocorrelation of the errors is small because the estimated AR(1) model is exactly the same as the data generating process. This may not be the case when fitting real-world data!
+        \item To address this, consider adding more lags of the LHS variable to the RHS of whatever model you are using.
+        \item Adding too many lags results in an oversaturated model (i.e. overfits the variance in the data). Generally you can pick the number of lags to use using some information criteria or out-of-sample forecast errors (root mean squared forecast error).
+    \end{itemize}
+    \end{column}
+    \begin{column}{0.45\textwidth}
+        \begin{figure}
+            \caption*{Autocorrelation of AR(1) Errors} \vspace{0.35cm}
+            \includegraphics[width = \linewidth, keepaspectratio, trim={0 0 0 0}, clip]{AR1_ACF.pdf}
+        \end{figure}
+    \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Newey-West Estimators}
+    A common fix to estimating robust standard errors with serially correlated residuals are a class of covariance matrix estimators known as heteroskedasticity- and autocorrelation-consistent (``HAC'') estimators. The most commonly used HAC estimators are the Newey-West(-Bartlett) estimators (\textcite{NeweyWest1987}). For an introduction and references to the econometric literature, see chapter 10 of \textcite{Hamilton1994} as well as the original paper. \CR
+    Newey-West estimators downweight the covariance between residuals further apart from one another according to a user-specified kernel. Setting the kernel to 0 lags reproduces the standard Huber-White (sandwich/heteroskedasticity-robust) covariance estimator. \CR
+    There exists a literature on how to choose the optimal number of lags (known as the bandwidth) used in computing the kernel. In my experience, controlling for a year (12 months or 4 quarters depending on data frequency) is fine for applied work.
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Newey-West Estimators}
+    \framesubtitle{Continued}
+    The Stata command for Newey-West is \verb|newey| and the kernel is specified using option \verb|lag(#)|. You can directly substitute this command for \verb|regress [...], robust| when working with time series data. Note that it takes longer to run on Stata due to the extra matrix manipulations needed to calculate the standard errors.
+    \begin{verbatim}
+    newey depvar [indepvars] [if] [in] [weight], lag(#) [options]
+    \end{verbatim}
+    A situation in which you would use HAC standard errors is when your regression variables are annual growth rates or moving averages: In such cases, the overlap between lagged values that are used in calculating the rates or MAs can induce autocorrelation in the residuals. 
+\end{frame}
+
+\begin{frame}
+    \frametitle{Trend}
+    One can remove the trend from a time series (and thus, render it stationary) by differencing the series: The first difference removes a linear trend; the second difference removes a quadratic trend; and so on. \CR
+
+    The traditional way in macroeconomics of separating a ``trend'' component from the ``cyclical'' component is by applying the HP filter (see \textcite{HodrickPrescott1981}). This method has fallen out of favor in recent years but many economists still use it.
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Standardization}
+    One final commonly-used transformation is to standardize the time series such that its units are in standard deviations around $0$. Standardization does not affect inference but helps with the interpretation of coefficient estimates.
+    % \begin{alignat*}{2}
+    %     \left\{x_t\right\} \mapsto \left\{\frac{x_t-\bar{x}}{\hat{\text{s}}_x}\right\} \equiv \left\{\frac{x_t-\frac{1}{\tau+1}\sum_{t=0}^{\tau}x_t}{\frac{1}{\tau}\sqrt{\sum_{t=0}^{\tau}x_t-\frac{1}{\tau+1}\sum_{t=0}^{\tau}x_t}}\right\} 
+    % \end{alignat*}
+    % where $\bar{x}$ and $\hat{s}_x$ are the sample mean and sample standard deviation of $\{x_t\}$, respectively.
+    \begin{columns}
+    \begin{column}{0.3\linewidth}
+    \small
+    \begin{verbatim}
+* These are equivalent
+egen mean_GDP_4q = mean(GDP_4q)
+egen sd_GDP_4q = sd(GDP_4q)
+gen GDP_4q_std = ///
+    (GDP_4q- ///
+    mean_GDP_4q)/sd_GDP_4q
+
+egen GDP_4q_std_alt = ///
+    std(GDP_4q)
+    \end{verbatim}
+    \end{column}
+    \begin{column}{0.6\textwidth}
+    \vspace{-1cm}
+        \begin{figure}
+            \caption*{} \vspace{0.35cm}
+            \includegraphics[width = \linewidth, keepaspectratio, trim={0 0 0 0}, clip]{GDP_actual_vs_standard_4q.pdf}
+        \end{figure}
+    \end{column}
+    \end{columns}
+\end{frame}
+
+\section{Motivation for VARs \& LPs}
+\begin{frame}
+    \frametitle{Identification in Macroeconomics}
+    Identification in macro tends to be extremely difficult because most macroeconomic and financial time series are all related.
+    \begin{itemize}
+        \item For instance, consumption, investment, taxation, government spending, interest rates, inflation, exchange rates, global news, regional shocks all influence each other--how do you study (a subset of) these all together?
+        \item How do you identify the effect that changes in one variable have on other variables through time?
+        \item How do you identify \textit{dynamic} causal effects?
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{An Overview of Approaches Used in Dynamic Causal Identification}
+    \begin{enumerate}
+        \item Narrative Identification
+            \begin{itemize}
+                \item Uses plausibly-exogenous changes manually picked from the historical record as exogenous shocks
+                \item Examples: \textcite{FriedmanSchwartz1963,RomerRomer2004}
+            \end{itemize}
+        \item Structural Vector Autoregressions (SVARs)
+            \begin{itemize}
+                \item Cholesky identification (``internal instruments''): Short-run  (\textcite{ChristianoEichenbaumEvans1999,ChristianoEichenbaumEvans2005}) and long-run (\textcite{BlanchardQuah1989}) restrictions
+                \item Proxy SVAR (``external instruments''): \textcite{Stock2008,StockWatson2012,MertensRavn2013}
+                \item Sign restrictions: \textcite{Uhlig2005}
+            \end{itemize}
+        \item High-Frequency Identification
+            \begin{itemize}
+                \item Using high-frequency changes in federal funds rate or eurodollar futures around tight windows on announcement days to isolate the causal effect of policy changes
+                \item Examples: \textcite{BauerSwanson2023}
+            \end{itemize}
+        \item Combinations of the Above
+            \begin{itemize}
+                \item Narrative with high-frequency data: \textcite{Kanzig2021}
+                \item SVARs with high-frequency data: \textcite{GertlerKaradi2015,MirandaAgrippinoRicco2021,NunesOzdagliTang2022}
+            \end{itemize}
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}
+    \label{frame:from_theory_to_empirics}
+    \APButton{frame:NK_model}{New Keynesian Model}{1}
+    \frametitle{From Macroeconomic Theory to Empirics}
+    Have you ever heard something along the lines of ``monetary policy affects the economy with long and variable lags''? This assertion derives from research that relies on either VARs or LPs. \CR
+    Vector autoregressions (VARs) and local projections (LPs) are the most ubiquitous econometric methods used to estimate dynamic effects and perform causal identification when studying multiple endogenous time series. In these slides we will stick to empirical methods, but since (log-)linearized solutions of macroeconomic models can typically be represented in state-space form, they readily lend themselves to VAR or LP analysis.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Example: How Does Monetary Policy Affect Unemployment?}
+    \vspace{-0.75cm}
+    \begin{figure}
+        \caption*{}
+        \includegraphics[scale=0.165,trim={0 0 0 1cm},clip]{UR_FFR.pdf}
+    \end{figure}\vspace{-0.5cm}
+    Historically, the unemployment rate rises when the federal funds rate is low! Does this mean $\downarrow$ FFR $\implies$ $\uparrow$ UR? 
+\end{frame}
+
+\begin{frame}
+    \frametitle{Endogeneity in Simple Regressions}
+    Estimating the na\"ive regression over 1980:01--2025:06
+    \begin{alignat*}{2}
+    \text{UR}_t &= \alpha + \beta i_t + \varepsilon_t
+    \end{alignat*}
+    yields a statistically significant estimate of $\hat{\beta} = 0.05~(0.02)$. This does not accord with our intuition. So what's going on?
+\begin{itemize}
+    \item The UR and the FFR are endogenous!
+    \item The regression is actually capturing the comovement of these variables in response to shocks in each other and in other variables not included in the rgression.
+    \item The regression is invalid because (1) it contains omitted variable bias and (2) it violates the exclusion requirement.
+\end{itemize}
+We will now look at how LPs and VARs can be used to overcome these issues.
+\end{frame}
+
+\section{Local Projections (LPs)}
+\begin{frame}
+    \frametitle{Causal Identification in a Static Cross-Sectional Context}
+    Consider the following simple linear regressions.
+    \begin{alignat*}{2}
+        y_i & = \beta x_i + \varepsilon_i \\
+        \log(y_i) & = \gamma \log(x_i) + \nu_i
+    \end{alignat*}
+    If $x_i$ is exogenous to $y_i$, then $\beta$ yields the estimated causal effect on $y_i$ in $y_i$'s units of raising $x_i$ by 1 unit. Also, $\gamma$ yields the estimated causal effect of $y_i$ \textit{in percent} of raising $x_i$ by 1 percent. \CR
+    Moreover, if $x_i$ is endogenous to $y_i$ but you have an instrumental variable $z_i$, you can identify the causal effect of $x_i$ on $y_i$ by using an instrumental variables (IV) or two-stage least squares (2SLS) regression. \CR
+    Impulse responses (whether from LPs or an identified SVAR) are an extension of this procedure when (1) the system includes multiple variables related across time and contemporaneously and (2) a shock to one variable takes time to affect the other variables.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Impulse Responses}
+    An impulse response function (IRF) gives the causal effect that one variable (the impulse) has on another (the response) in the dynamic system. Since we are working with time series data, impulse responses are calculated and reported at horizons $h \geq 0$ where $h = 0$ is known as the ``on impact'' response. \CR
+    Impulse response functions are the dynamic equivalent of static estimates of a causal effect; for that reason, they make sense only when a horizon is provided. The statement ``a 1 percentage point increase in interest rates decreases inflation by 3 percentage points'' begs the follow-up question ``how long after the increase in interest rates do we see the fall in the inflation rate?'' The timing matters!
+\end{frame}
+
+\begin{frame}
+    \frametitle{Instruments \& Shocks}
+    When running LPs, we usually rely on identified shocks that come from some other economist's website or replication package. There exists a huge literature on identifying shocks, the surface of which we will barely scrape here. \CR
+    A \textbf{shock} is a variable that is exogenous to a dynamic system. As such, it can be used to identify causal effects because it satisfies the exclusion requirement that caused our na\"ive regression to fail. In regressions we can either use shocks directly or as instruments for an endogenous variable. \CR
+    Macroeconomic shocks can broadly be binned into shifters of aggregate demand and aggregate supply. The demand- and supply-side shocks that I have most often seen used are monetary policy shocks\footnote{
+    As you can imagine, it's very difficult to identify exogenous changes to monetary policy: After all, the Fed hires hundreds of economists to make sure that monetary policy is as endogenous as can be!} and oil supply shocks, respectively.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Local Projections}
+    Local projections (LPs) were first introduced by \textcite{Jorda2005} as an alternative to VARs for estimating impulse responses. LPs are just a bunch of regressions estimated at various horizons that are especially easy to use once one has an identified shock. \CR
+    LPs...
+    \begin{itemize}
+        \item estimate the same IRFs as VARs (in population: see discussion later); and
+        \item tend to be easier to set up and estimate than VARs;
+        \item are easier to use in an external instrument context;
+        \item are easier to use in the presence of potential nonlinearities and/or interaction effects; and
+        \item do not have a potential noninvertibility problem as SVARs.
+    \end{itemize}
+    LPs take their name from the fact that instead of compounding the estimated dynamics of the system as in VARs, they instead compute IRFs by calculating responses locally to each forecast horizon. 
+\end{frame}
+
+\begin{frame}
+    \label{frame:local_projections}
+    \frametitle{Local Projections}
+    \APButton{frame:LP_estimation_assumptions}{LP Estimation Assumptions}{1}
+    The general form of a local projection is
+    \begin{alignat}{2}
+    \label{equation:local_projections}
+\tag{Local Projections} y_{t+h} &= \alpha^{(h)} + \beta^{(h)}z_t + w_t^{\prime}{\gamma^{(h)}} + \sum_{\tau=1}^{p}\eta^{(h)}_{t-\tau}y'_{t-\tau} + \sum_{\tau=1}^{p}x'_{t-\tau}\delta^{(h)}_{t-\tau} + \varepsilon^{(h)}_{t+h}, \quad h \in \left\{0,\dots,H\right\}
+\end{alignat}
+where
+\begin{itemize}
+    \item $y_t$ is the scalar variable whose response we are interested in;
+    \item $z_t$ is a scalar shock occurring at time $t$;
+    \item $w_t$ is a vector of contemporaneous control variables;
+    \item $x_{t-\tau}, \ \tau \in \left\{0,\dots,p\right\} $ are lagged vectors of controls that might include $z_{t-\tau}$ and $w_{t-\tau}$; 
+    \item $\varepsilon^{(h)}_{t+h}$ is the regression residual; and
+    \item $\alpha^{(h)}, \beta^{(h)}, \gamma^{(h)}, \delta^{(h)}_{t-\tau}, \eta^{(h)}_{t-\tau}$ are regression coefficients.
+\end{itemize}
+The impulse response function to the shock $z_t$ is given by estimating the LP for each $h$ and plotting the coefficients $\beta^{(h)}$ with their associated confidence bands.
+\end{frame}
+
+\begin{frame}
+    \frametitle{3 Kinds of LP Specifications}
+    The impulse response coefficient has a different interpretation depending on whether the response variable is a difference and the units of the response variable. The response variable can either be given 
+    \begin{enumerate}
+        \item in levels (percents) or log-levels;
+        \item as a a period-by-period difference ($t+h-1$ to $t+h$); or
+        \item as a cumulative multiplier ($t-1$ to $t+h$).
+    \end{enumerate} 
+    We will cover all 3 of these cases individually in the coming slides. Before we do, let's review the Frisch-Waugh-Lovell theorem, which will help us with understanding these different specifications.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Frisch-Waugh-Lovell Theorem (FWL)}
+    \textbf{Frisch-Waugh-Lovell Theorem}: Controlling for a set of variables on the right-hand side of a regression is equivalent to the regression where the left- and right-hand-side variables are residualized with respect to the control variables. \CR
+    The regression $Y = X\beta + Z\gamma + \varepsilon$ produces the same coefficients and standard errors for $\beta$ as the regression $\tilde{Y} = \tilde{X}\beta + \nu$ where $\tilde{Y} \coloneq Y - Z\hat{\gamma}^Y$ and  $\tilde{X} \coloneq X - Z\hat{\gamma}^{X}$. ($\tilde{Y}$ and $\tilde{X}$ are the residuals from the regressions $Y = Z\gamma^{Y} + \tilde{Y}$ and $X = Z\gamma^{X} + \tilde{X}$.) Controlling for $Z$ is equivalent to partialing it out from both $Y$ and $X$.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Specification \#1: Response Variable in Levels or Percent}
+    Suppose $y$ is in levels or is a percent.\footnote{Note: Here, ``percent'' does not refer to the units of the variable. The variable could be measured in percents, such as the unemployment rate, or in percentage points, such as the corporate bond spread.} For $\beta^{(h)}$ to have the interpretation of a change in $y$ from $t-1$ to $t+h$, we need to control for lags of $y$ on the RHS. The estimates of $\beta^{(h)}$ will be in the same units as $y$.
+    \begin{alignat*}{3}
+    y_{t+h} &= \alpha^{(h)} + \beta^{(h)}z_t + \sum_{\tau=1}^{p}\lambda_{t-\tau}^{(h)} y_{t-\tau} + \sum_{\tau=1}^{p}x'_{t-\tau}\delta^{(h)}_{t-\tau} + \varepsilon^{(h)}_{t+h}, \quad & h \in \left\{0,\dots,H\right\}
+    \intertext{Note that this is equivalent to subtracting $y_{t-1}$ from both sides of the regression equation and writing the LP as follows. This specification is typical if $y$ is a rate such as the unemployment rate or a credit spread.} 
+    y_{t+h}-y_{t-1} &= \alpha^{(h)} + \beta^{(h)}z_t + \hat{\lambda}_{t-1}^{(h)} y_{t-1} + \sum_{\tau=2}^{p}\lambda_{t-\tau}^{(h)} y_{t-\tau} + \sum_{\tau=1}^{p}x'_{t-\tau}\delta^{(h)}_{t-\tau} + \varepsilon^{(h)}_{t+h}, \quad & h \in \left\{0,\dots,H\right\}
+    \end{alignat*}
+    where $\hat{\lambda}^{(h)} = \lambda^{(h)} - 1$. Note that by FWL, the coefficient of interest, $\beta^{(h)}$, is equivalent between the two specifications!
+\end{frame}
+
+\begin{frame}
+    \frametitle{Specification \#1: Response Variable in Log-Levels}
+    Suppose $y$ is in log-levels. Controlling for lags of $y$ on the RHS then yields $\beta^{(h)}$ in percentage points units. This specification is typically used for variables which are not already percents in their ``level'' form such as indices or measured quantities. \CR
+    % \begin{alignat*}{2}
+    % y_{t+h} &= \alpha^{(h)} + \beta^{(h)}z_t + \sum_{\tau=1}^{p}\lambda_{t-\tau}^{(h)} y_{t-\tau} + \sum_{\tau=1}^{p}x'_{t-\tau}\delta^{(h)}_{t-\tau} + \varepsilon^{(h)}_{t+h}, & \quad h = \left\{1,\dots,H\right\} \\
+    % y_{t+h}-y_{t-1} &= \alpha^{(h)} + \beta^{(h)}z_t + \hat{\lambda}_{t-1}^{(h)} y_{t-1} + \sum_{\tau=2}^{p}\lambda_{t-\tau}^{(h)} y_{t-\tau} + \sum_{\tau=1}^{p}x'_{t-\tau}\delta^{(h)}_{t-\tau} + \varepsilon^{(h)}_{t+h}, & \quad h = \left\{1,\dots,H\right\}
+    % \end{alignat*}
+    This specification is the exact same except that the units of the coefficient $\beta^{(h)}$ is in percentage points. Note, however, that it does not make sense to take logs of a percent variable since simple differences are already in percentage points units.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Specification \#1: Interpretation}
+    When using specification \#1, if $z$ is in levels (a percent) [in log-levels] and $y$ is...
+    \begin{itemize}
+        \item ...in levels, then $y$ changes by $\beta^{(h)}$ \textit{units} for each unit (percentage point) [percent] increase in $z$...
+        \item ...in log-levels, then $y$ changes by $\beta^{(h)}$ \textit{percent} for each unit (percentage point) [percent] increase in $z$...
+        \item ...a percent (such as a yield or spread), then $y$ changes by $\beta^{(h)}$ \textit{percentage points} for each unit (percentage point) [percent] increase in $z$...
+    \end{itemize}
+    ...$h$ periods after the impact of the shock.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Specification \#2: Response Variable as a Difference}
+    Define the period-by-period difference as
+    \begin{alignat*}{2}
+        \Delta y_t & \coloneq y_t-y_{t-1} \\
+        \implies \Delta y_{t+h} & = y_{t+h}-y_{t+h-1}.
+    \end{alignat*}
+    The LP where both the response variable and its controls are differences is given as follows.
+    \begin{alignat*}{2}
+    \Delta y_{t+h} &= \alpha^{(h)} + \beta^{(h)}z_t + \sum_{\tau=1}^{p}\lambda_{t-\tau}^{(h)} \Delta y_{t-\tau} + \sum_{\tau=1}^{p}x'_{t-\tau}\delta^{(h)}_{t-\tau} + \varepsilon^{(h)}_{t+h}, \quad & h \in \left\{1,\dots,H\right\}
+    \end{alignat*}
+    If $y$ is in levels (a percent) [in log-levels], then $\beta^{(h)}$ gives the units (percentage points) [percent] change in $y$ to an increase in $z$\footnote{Similarly, this can either be for a unit (if $z$ is a level), a percentage point (if $z$ is a percent), or a percent (if $z$ is a log-level) increase in $z$.} $h$ periods after the shock.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Specification \#3: Response Variable as a Cumulative Sum}
+    Let $y$ be either a level, log-level or a percent. Define the cumulative sum of $\Delta y$ from $t-1$ to $t+h$ as 
+    \begin{eqnarray*}
+    \tilde{\Delta} y_{t-1:t+h} \coloneq \sum_{\tau=-1}^{h}\Delta  y_{t+\tau}.\footnote{Note that if $y$ is a log difference (as is usually the case when using this specification), the sum telescopically collapses to $\tilde{\Delta} y_{t-1:t+h} \equiv y_{t+h}-y_{t-1}$ which is the percent change in $y$ from $t-1$ and $t+h$.}
+    \end{eqnarray*}
+    We run this specification with $\tilde{\Delta} y_{t-1:t+h}$ on the LHS while controlling for lags of $\Delta y_{t+h}$ on the RHS.
+    \begin{alignat*}{2}
+    \tilde{\Delta} y_{t-1:t+h} &= \alpha^{(h)} + \beta^{(h)}z_t + \sum_{\tau=1}^{p}\lambda_{t-\tau}^{(h)} \Delta y_{t-\tau} + \sum_{\tau=1}^{p}x'_{t-\tau}\delta^{(h)}_{t-\tau} + \varepsilon^{(h)}_{t+h}, \quad h \in \left\{0,\dots,H\right\}
+    \end{alignat*}
+    In this specification, $\beta^{(h)}$ carries the interpretation of a cumulative multiplier. In other words, $\beta^{(h)}$ is the cumulative effect of the shock on $y$ $h$ periods after impact.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Specification \#3: Interpretation}
+    Specification \#3 is useful for answering the question, ``what is the total impact of the shock $z$ on $y$ after $h$ periods have passed'' instead of ``how does $y$ respond to $z$ after $h$ periods''. While these two questions appear similar, there is a substantive and quantitative difference between them. Saying that an oil supply shock raises prices by 1 percentage point \textit{over} 12 months is much different than saying that it raises prices by 1 percentage point 12 months after impact.\CR
+    There are variations on this specification depending on $y$'s units and the kinds of lags we control for. Keeping track of whether variables are flows and stocks is essential. Specification \#1 gives the IR of a stock; \#2 gives the IR of a flow; and \#3 gives the cumulative impact of flows on the underlying stock.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Remarks on LP Specifications}
+    Each of the three specifications carries a different interpretation for $\beta^{(h)}$, so it's important to check whether the specification you are using corresponds with your desired interpretation. \CR
+    For example, it is possible to recover the IRF of specification \#3 by estimating \#2 and, at each $h$, showing $\sum_{\tau=0}^{h}\beta^{(\tau)}$. However, you cannot simply sum over the standard errors. It is thus usually advisable to directly estimate specification \#3.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Picking $H$ and $p$}
+    We have a choice over $H$ and $p$---the number of horizons for which we compute the LPs and the number of lags of the control variables we include, respectively. \CR
+    In the monthly or quarterly macro context, IRFs are usually reported to horizons of 2 to 5 years (24 to 60 months or 8 to 20 quarters) because LPs and VARs are meant to capture the system's short-term dynamics. Going too far renders the responses susceptible to noise as the control variables no longer effectively capture trends and comovements in the outcome variables at long horizons.\CR
+    As such, one typically controls for a year or two of lags. Including less lags would fail to capture trends in variables and the short- to medium-term dynamics of the system. Including more lags runs the risk of soaking up the cyclical variation in the system in the control variables instead of the exogenous shock. In principle, it is possible to use the Akaike (AIC) or Bayesian (BIC) information criteria to choose the number of lags.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Example: Transmission of MP to Real and Financial Variables}
+    We are interested in the response of 6 variables to a monetary policy shock $\text{MP}_t$ (sourced from \textcite{NunesOzdagliTang2022}):
+    \begin{itemize}
+        \item Employment (log-level $\times~100$)
+        \item Core PCE price index (log-level $\times~100$)
+        \item House price index (log-level $\times~100$)
+        \item Outstanding corporate bonds (log-level $\times~100$)
+        \item S\&P 500 stock index  (log-level $\times~100$)
+        \item \textcite{GilchristZakrajsek2012} corporate bond credit spread (percentage points)
+    \end{itemize}
+    The LP equations are different for the variables depending on whether it is a percent (GZ spread) or log-level (all other variables after taking logarithms and multiplying by 100). Due to the log-level transformation, all response units are in percentage points.
+\end{frame}
+
+ \begin{frame}
+    \frametitle{Example: MP Transmission}
+    \framesubtitle{Continued}
+    Here are more implementation details about the LPs.
+    \begin{itemize}
+        \item All time series are balanced over 1985:Q1--2019:Q4.
+        \item $p=4$ quarterly lags
+        \item RHS variables thus span 1985:Q1--2018:Q4; LHS variables span 1986:Q1--2019:Q4
+        \item Confidence intervals were calculated with the Newey-West correction with 5 autocorrelated lags.
+    \end{itemize}
+    Since $\text{MP}_t$ is scaled to raise the 1-year bond yield by 1 percentage point (this is a implausibly huge shock), we rescale it to raise the 1-year bond yield by 25 basis points. An easy shortcut way of doing this is by simply multiplying it by the reciprocal of the factor you wish you rescale it by: $\text{MP}_t \mapsto 4\times \text{MP}_t$.\footnote{The non-shortcut way involves calculating the on-impact ($h=0$) LP and rescaling the shock by the estimated coefficient times the reciprocal of the desired rescaling factor.}
+\end{frame}
+
+ \begin{frame}
+    \frametitle{Example: MP Transmission}
+    \framesubtitle{Continued}
+    The LP for the GZ credit spread at horizon $h$ takes the form
+    \begin{alignat*}{4}
+        &\text{GZS}_{t+h} &= \alpha^{(h)} + \beta^{(h)}\text{MP}_t + &\sum_{\tau=1}^{4}\big(\text{Empl}_{t-\tau}\delta^{\text{Empl},(h)}_{t-\tau} + \text{PCEX}_{t-\tau}\delta^{\text{PCEX},(h)}_{t-\tau} +\text{OCB}_{t-\tau}\delta^{\text{OCB},(h)}_{t-\tau}& \\
+        &&& + \text{S\&P}_{t-\tau}\delta^{\text{S\&P},(h)}_{t-\tau} +\text{HPI}_{t-\tau}\delta^{\text{HPI},(h)}_{t-\tau} + \text{GZS}_{t-\tau}\delta^{\text{GZS},(h)}_{t-\tau}\big) + \varepsilon_{t+h}^{\text{GZS},(h)}.
+    \end{alignat*}
+    For the 5 other variables, I instead used the cumulative log-difference on the LHS. 
+    \begin{alignat*}{2}
+    \tilde{\Delta} \text{S\&P500}_{t-1:t+h} \coloneq \text{S\&P500}_{t+h} - \text{S\&P500}_{t-1}
+    \end{alignat*}
+    I kept the RHS the same. Note that I should have included fewer lags of the LHS variable on the RHS for all variables except the GZ credit spread (as these are computed as differences on the LHS), but by the Frisch-Waugh-Lowell theorem this does not affect the coefficient of interest, $\beta^{(h)}$.
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Exercise: Local Projections}
+    Let's run these LPs using both monetary policy (MP) shocks from \textcite{NunesOzdagliTang2022} and oil supply news (OSN) shocks from \textcite{Kanzig2021}. \CR
+    The MP shock is scaled such that it raises 1-year Treasury yield by 1 percentage point on impact. The OSN shock, on the other hand, is scaled such that it raises the real price of oil by 10\% on impact. 
+    \begin{center}
+    \large \verb|run_LPs.do|
+    \end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Transmission of Monetary Policy Shocks to Real and Financial Variables}
+    \begin{figure}
+    \centering
+    \includegraphics[scale=.33,trim={0 0 0 0},clip]{local_projections/combined_NOT_MP_1985_2019_16.pdf}
+\end{figure}
+\end{frame}
+
+\begin{frame}
+\frametitle{Transmission of Oil Supply News Shocks to Real and Financial Variables}
+    \begin{figure}
+    \centering
+    \includegraphics[scale=.33,trim={0 0 0 0},clip]{local_projections/combined_K_OSN_1985_2019_16.pdf}
+\end{figure}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Extensions to LPs}
+    The most commonly-used extensions to LPs are:
+    \begin{itemize}
+        \item Panel LPs, used for estimating dynamic impulse responses while controlling for cross-sectional variation; 
+        \item Local projections with instrumental variables (LP-IV), first introduced by \textcite{StockWatson2018} and used for instrumenting one of the endogenous variables with a shock (instead of running with the shock directly on the RHS of the LP). These are equivalent to proxy SVARs;
+        \item Difference-in-differences local projections (LP-DiD), introduced by \textcite{DubeEtAl2025} and used for estimating differential responses among categories dynamically; and
+        \item Bayesian LPs (BLPs): introduced by \textcite{MirandaAgrippinoRicco2021} and further expanded upon in \textcite{FerreiraEtAl2025}, estimation with informative priors.
+    \end{itemize}
+    Panel LPs and LP-IVs can easily be implemented in Stata by using the \texttt{reghdfe}, \texttt{ivreg2}, and \texttt{ivreghdfe} (or substitute) commands.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Packages and References for Local Projections}
+    Òscar Jordà's \href{https://sites.google.com/site/oscarjorda/home/local-projections}{\color{blue}page on local projections} has plenty of papers and references including for many extensions of LPs. Some packages he highlights are:
+    \begin{itemize}
+        \item Stata
+        \begin{itemize}
+            \item \texttt{locproj}
+            \item \texttt{lpdid}
+        \end{itemize}
+        \item R
+        \begin{itemize}
+            \item \texttt{lpirfs}
+        \end{itemize}
+    \end{itemize}
+    It is fairly straightforward to manually program local projections by either running multiple looping through horizons or by appending and running a single regression. 
+\end{frame}
+
+\section{Vector Autoregressions (VARs)}
+\begin{frame}
+    \label{frame:VARs}
+    \APButton{frame:VARs_supplementary}{VARs Supplementary Material}{1}
+    \frametitle{Vector Autoregressions}
+    A vector autoregression (VAR) is a generalization of an AR process to multiple variables. VARs are used for identifying shocks,\footnote{VARs are usually used to identify the shocks that we drive LPs with.} deriving impulse responses, historically decomposing innovations in dynamic systems, forecast error variance decompositions, forecasting in the short- to medium-runs, and much more. \CR
+    In this section, we will cover the basics of VARs with as little notation as possible. For a more thorough treatment, please see the supplementary material section of the appendix. For an excellent treatment of these topics (and a slightly-different approach to my coverage here), see \href{https://github.com/ambropo/VAR-Toolbox/blob/main/VAR_Primer_Slides.pdf}{\textcolor{blue}{Ambrogio Cesa-Bianchi's slides}}.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Impulse Responses in an AR(1)}
+    Suppose $x$ follows the following mean-0 AR(1) process. All of the forthcoming results can be extended to accommodate for $p>1$ and a constant, but let's proceed with the simple case for the sake of exposition.
+    \begin{alignat*}{2}
+    x_t = \phi x_{t-1} + \varepsilon_t, \quad \varepsilon_t \sim \mathcal{N}(0,1)
+    \end{alignat*}
+    The impulse response to a 1 percentage point increase in $x$ at time $t=0$ is given by setting $\varepsilon_0 = 1$ and iterating the AR(1) process forward (i.e., applying it over and over again). We let $x_{t-1} = 0$ and the sequence $\varepsilon_t = 0$ for $t>0$. Then:
+    \begin{alignat*}{3}
+    x_0 &= \phi x_{-1} + \varepsilon_0 &= \phi \cdot 0 + 1 &= 1 \\
+    x_1 &= \phi x_0 + \varepsilon_1 &= \phi \cdot 1 + 0 &= \phi \\
+    x_2 &= \phi x_1 + \varepsilon_2 &= \phi \cdot \phi + 0 &= \phi^2 \\
+    \implies x_H &= \phi^H & & \\
+    \end{alignat*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Impulse Responses in an AR(1)}
+    \framesubtitle{Continued}
+    If the AR process is stable---meaning $\phi<1$---then a shock in the variable dissipates to 0 since
+    \begin{alignat*}{2}
+    \lim_{h\rightarrow\infty} x_h = \lim_{h\rightarrow\infty} \phi^h = 0.
+    \end{alignat*}
+    The closer to 0 that $\phi$ is, the faster the rate of dissipation. Similarly, the closer to 1 that $\phi$ is, the longer takes for the effects of the shock to dissipate. Here is the empirical IRF of a stochastic simulation when $\phi = 0.9$.
+    \begin{columns}
+    \begin{column}{0.6\linewidth}
+    \begin{figure}
+        \includegraphics[scale=0.1]{AR1_IRF.pdf}
+    \end{figure}
+    \end{column}
+    \begin{column}{0.3\linewidth}
+    If $\phi>1$, then the AR is explosive and the limit does not exist, meaning the effects of a shock are greater the further away from the impact period we go. In most contexts, this does not make sense intuitively.
+    \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{From AR(1) to VAR(1)}
+    Now suppose we have two variables, inflation ($\pi$) and interest rates ($i$), which follow the following VAR(1) process written in scalar form:
+    \begin{alignat*}{2}
+    \pi_t & = \phi_{1,1}\pi_{t-1} + \phi_{1,2}i_{t-1} + \nu_{t}^\pi\\
+    i_t & = \phi_{2,1}\pi_{t-1} + \phi_{2,2}i_{t-1} + \nu_{t}^i
+    \intertext{We can stack these equations up and express the VAR compactly in companion form.}
+    \underbrace{\begin{bmatrix}
+        \pi_t\\
+        i_t
+    \end{bmatrix}}_{X_t}
+    & =
+    \underbrace{\begin{bmatrix}
+        \phi_{1,1} & \phi_{1,2}\\
+        \phi_{2,1} & \phi_{2,2}
+    \end{bmatrix}}_{\Phi}
+    \underbrace{\begin{bmatrix}
+        \pi_{t-1}\\
+        i_{t-1}
+    \end{bmatrix}}_{X_{t-1}}
+    +
+    \underbrace{\begin{bmatrix}
+        \nu^\pi_{t}\\
+        \nu^i_{t}
+    \end{bmatrix}}_{\nu_t}
+    \end{alignat*}
+    As its name suggests, a VAR is an AR in vectors. Just like in an AR, if we included $p$ lags of $X_t$ on the RHS, we would have a VAR(p) model. Note that since every VAR(p) can be written in VAR(1) form, we will stick to the latter here.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Reduced-Form VARs}
+    First, we make sure that $\pi$ and $i$ are stationary (otherwise, we would need to include more lags and/or a constant term). Once we have the reduced-form VAR set up, we can directly estimate it using OLS or Bayesian linear regression. Thus, we estimate
+    \begin{alignat}{2}
+    \label{equation:VAR_reduced_simple}
+    \tag{Reduced-Form VAR}
+    X_t &= \Phi X_{t-1} + \nu_t
+    \end{alignat}
+    where
+    \begin{itemize}
+        \item $X_\tau,~\tau\in\left\{t-1,t\right\}$ represents the system variables at time $\tau$;
+        \item $\Phi$ is the \textbf{reduced-form coefficient matrix}; 
+        \item $\nu_t$ represents the \textbf{reduced-form residuals/innovations}; and
+        \item $\Omega \coloneq \mathbb{E}\left[\nu_t\nu_t'\right]$ is the \textbf{reduced-form covariance matrix}.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Forecasting with VARs}
+    Suppose we are at time $T$ and wish to produce a forecast for $H$ periods from now. We can generate forecasts for all of the variables in the VAR\footnote{Note: You can also forecasting using LPs (not covered in these slides).} by iterating it forward.\footnote{Many policy institutions nowadays rely on Bayesian VARs (BVARs) to produce their forecasts. One reason for this is because credible intervals produced by BVARs permit probabilistic claims about the future paths.} 
+    \begin{alignat*}{2}
+    X_T &= \Phi X_{T-1} + \nu_t \\
+    \mathbb{E}\left[X_{T+1}\right] &= \hat{\Phi} X_T \\
+    \mathbb{E}\left[X_{T+2}\right] &= \hat{\Phi} \mathbb{E}\left[X_{T+1}\right] &= \hat{\Phi}^2 X_T \\ \mathbb{E}\left[X_{T+3}\right] &= \hat{\Phi} \mathbb{E}\left[X_{T+2}\right] &= \hat{\Phi}^3 X_T \\
+    & \ \; \vdots & \\
+    \mathbb{E}\left[X_{T+H}\right] &= \hat{\Phi}^H X_T
+    \end{alignat*}
+    The general result is obtained by induction. Producing confidence or credibility bands in this context is slightly more complex so we will not cover these here. 
+\end{frame}
+
+\begin{frame}
+    \frametitle{The Identification Problem in VARs}
+    Though we can use the reduced-form VAR to produce forecasts, we cannot use it to perform causal identification or produce IRFs. 
+    \begin{alignat*}{2}
+    \pi_t & = \phi_{1,1}\pi_{t-1} + \phi_{1,2}i_{t-1} + \nu_{t}^\pi\\
+    i_t & = \phi_{2,1}\pi_{t-1} + \phi_{2,2}i_{t-1} + \nu_{t}^i
+    \end{alignat*}
+    Here, $\nu_t^\pi$ and $\nu_t^i$ are the amount in $\pi_t$ and $i_t$ that cannot be explained by lagged values of $\pi$ and $i$. We have no way of knowing how much of these is due to a shock in $\pi$ or a shock in $i$. This is known as the identification problem. Another way of seeing this issue is by further decomposing the vector $\nu_t$ into what are known as the \textbf{structural errors or innovations}, represented by $\varepsilon$.
+    \begin{alignat*}{2}
+    \nu_t^\pi = a'_{1,1}\varepsilon_t^\pi + a'_{1,2}\varepsilon_t^i \\
+    \nu_t^i = a'_{2,1}\varepsilon_t^\pi + a'_{2,1}\varepsilon_t^i
+    \end{alignat*}
+    For now, we ignore the $\cdot^{\prime}$ notation.
+\end{frame}
+
+\begin{frame}
+    \frametitle{The Identification Problem in VARs}
+    \framesubtitle{Continued}
+    We can do the same thing to each of the $\phi$'s by decomposing them into coefficients $a'$ and $b$. Collecting everything into matrices, we have:
+    \begin{alignat*}{2}
+    \underbrace{\begin{bmatrix}
+     \pi_t \\
+     i_t
+    \end{bmatrix}}_{X_t}
+    &=
+    \underbrace{\underbrace{\begin{bmatrix}
+    a'_{1,1} & a'_{1,2} \\ 
+    a'_{2,1} & a'_{2,2}
+    \end{bmatrix}}_{A^{-1}}
+    \underbrace{\begin{bmatrix}
+    b_{1,1} & b_{1,2} \\ 
+    b_{2,1} & b_{2,2} \\
+    \end{bmatrix}}_{B}}_\Phi
+    \underbrace{\begin{bmatrix}
+     \pi_{t-1} \\
+     i_{t-1}
+    \end{bmatrix}}_{X_{t-1}}
+    +
+    \underbrace{\underbrace{\begin{bmatrix}
+    a'_{1,1} & a'_{1,2} \\ 
+    a'_{2,1} & a'_{2,2}
+    \end{bmatrix}}_{A^{-1}}
+    \underbrace{\begin{bmatrix}
+     \varepsilon^\pi_t \\
+     \varepsilon^i_t
+    \end{bmatrix}}_{\varepsilon_t}}_{\nu_t}.
+    \end{alignat*}
+    In all, this is just a decomposed version of what we had before:
+    \begin{alignat*}{2}
+    X_t &= \Phi X_{t-1} + \nu_t
+    \intertext{where}
+    \Phi &\equiv A^{-1}B, \\
+    \nu_t &\equiv A^{-1}\varepsilon_t.
+    \end{alignat*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Structural Vector Autoregressions}
+    Recall that multiplying a matrix by its inverse (if the latter exists) yields the identity matrix: $AA^{-1}=I$. Also recall that any matrix multiplied by the identity matrix yields the original matrix: $IB = BI = B$. By left-multiplying both sides of the reduced-form VAR by the matrix $A$, we recover the \textbf{structural form of the VAR} (SVAR).
+    \begin{alignat}{2}
+    \label{equation:VAR_structural_simple}
+    \notag X_t &= \Phi X_{t-1} + \nu_t \\
+    \notag \iff X_t &= A^{-1}BX_{t-1} + A^{-1}\varepsilon_t \\
+    \notag \implies AX_t &= AA^{-1}BX_{t-1}+AA^{-1}\varepsilon_t \\
+    \notag &= IBX_{t-1}+I\varepsilon_t \\
+    \tag{Structural VAR} AX_t &= BX_{t-1} + \varepsilon_t
+    \intertext{Written out, this looks like}
+    \notag
+    \underbrace{\begin{bmatrix}
+    a_{1,1} & a_{1,2} \\ 
+    a_{2,1} & a_{2,2}
+    \end{bmatrix}}_{A}
+    \underbrace{\begin{bmatrix}
+     \pi_t \\
+     i_t
+    \end{bmatrix}}_{X_t}
+    &=
+    \underbrace{\begin{bmatrix}
+    b_{1,1} & b_{1,2} \\ 
+    b_{2,1} & b_{2,2} \\
+    \end{bmatrix}}_{B}
+    \underbrace{\begin{bmatrix}
+     \pi_{t-1} \\
+     i_{t-1}
+    \end{bmatrix}}_{X_{t-1}}
+    +
+    \underbrace{\begin{bmatrix}
+     \varepsilon^\pi_t \\
+     \varepsilon^i_t
+    \end{bmatrix}}_{\varepsilon_t}.
+    \end{alignat}
+    Here, $B$ is the \textbf{structural coefficient matrix} while $A$ is the \textbf{inverse impact matrix} (meaning $A^{-1}$ is the \textbf{impact matrix}). 
+\end{frame}
+
+\begin{frame}
+    \frametitle{SVAR Identification}
+    In order to estimate IRFs, the reduced-form VAR is not enough: IRFs using the response to a reduced-form innovation tell us little about shocks, which are definitionally orthogonal with respect to movements in the other variables. We thus need to identify the SVAR. \CR 
+    Notice that from the reduced form of the VAR, we retrieve estimates for the coefficient matrix $\Phi$ and the reduced-form covariance matrix $\Omega$. We are, however, interested in the structural matrices $A^{-1}$ and $B$. Since $\Phi = A^{-1}B$, once we have $A^{-1}$ we immediately get $B$, too. \CR
+    Identifying the SVAR amounts to placing restrictions or obtaining estimates for the matrix $A^{-1}$. Here, we will only focus on the intuition behind Cholesky identification---a technique that was famously featured in \textcite{ChristianoEichenbaumEvans2005} but fallen out of use since in favor of more agnostic approaches. Regardless, it is useful as a simple way of understanding how SVARs work.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Cholesky Identification}
+    With some algebra (see the appendix), we can show that $\Omega = A^{-1}\left(A^{-1}\right)'$. The Cholesky decomposition of $\Omega$ yields $\Omega = PP'$ where $P$ is a positive semi-definite, lower-triangular matrix. Setting $A^{-1} = P$ identifies the SVAR. 
+    \begin{alignat*}{2}
+    \begin{bmatrix}
+     \pi_t \\
+     i_t
+    \end{bmatrix}
+    &=
+    \begin{bmatrix}
+    a'_{1,1} & 0 \\ 
+    a'_{2,1} & a'_{2,2}
+    \end{bmatrix}
+    \begin{bmatrix}
+    b_{1,1} & b_{1,2} \\ 
+    b_{2,1} & b_{2,2} \\
+    \end{bmatrix}
+    \begin{bmatrix}
+     \pi_{t-1} \\
+     i_{t-1}
+    \end{bmatrix}
+    +
+    \begin{bmatrix}
+    a'_{1,1} & 0 \\ 
+    a'_{2,1} & a'_{2,2}
+    \end{bmatrix}
+    \begin{bmatrix}
+     \varepsilon^\pi_t \\
+     \varepsilon^i_t
+    \end{bmatrix}.
+    \end{alignat*}
+     $A^{-1}$ is known as the impact matrix because it reflects the period-$t$ impact that a structural shock in $\pi$ or $i$ has on $\pi$ or $i$. This procedure essentially sets $a_{1,2}'=0$ in the simple 2-variable VAR(1) model. Economically what this amounts to is a contemporaneous timing restriction.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Cholesky Identification}
+    \framesubtitle{Continued}
+    Without loss of generality, we can also set $a_{1,1}' = a'_{2,2} = 1$. Writing out the product of the last term in the identified SVAR, we see how the timing restriction works in this case.
+    \begin{alignat*}{2}
+    \nu_t = A^{-1}\varepsilon_t = 
+    \begin{bmatrix}
+    1 & 0 \\ 
+    a'_{2,1} & 1
+    \end{bmatrix}\begin{bmatrix}
+     \varepsilon^\pi_t \\
+     \varepsilon^i_t
+    \end{bmatrix}
+    \implies
+    \begin{cases}
+        \nu_t^\pi = \varepsilon_t^\pi \\
+        \nu_t^i = a'_{2,1}\varepsilon_t^\pi + \varepsilon_t^i
+    \end{cases}
+    \end{alignat*}
+    Contemporaneously (that is, in the same period), a structural shock in $\varepsilon_t^\pi$ is the only thing that affects the value of $\pi_t$. However, the value of $i_t$ is contemporaneously affected by both shocks to $\pi_t$ as well as to the interest rate, $i_t$.\CR
+    The restriction states that interest rates respond immediately to changes in the inflation rate, but that a change in the interest rate in period $t$ only starts affecting inflation in period $t+1$.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Cholesky Identification}
+    \framesubtitle{Continued}
+    In other words, Cholesky identification assumes that variables \textit{ordered later} are unaffected by shocks in variables \textit{ordered earlier}. In our example, inflation is ordered first in the VAR, so it is only contemporaneously affected by shocks to itself (and shocks to it affect all other variables contemporaneously); interest rates are ordered last in the VAR, so they contemporaneously respond to shocks to all earlier variables but do not contemporaneously affect any other variable. \CR
+    Cholesky identification produces radically different results depending on the ordering of the variables in the VAR because when using Cholesky identification, this ordering encodes the contemporaneous restrictions placed on the variables. The structure is thus not agnostic with respect to the data, but rather imposed by the econometrician, who likely has outside evidence or a theoretical model that suggests which restrictions to use.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Impulse Responses in an Identified SVAR}
+    Once we have an identified SVAR, we can calculate impulse responses almost in the same way as in the AR(1). I write the IRFs in matrix notation because the algebra becomes complex. \CR
+    Suppose there is a structural shock at $t=0$ that raises $\pi_t$ by 1 percentage point when all variables are at steady state ($X_0$ is the 0 matrix here). There is no structural shock in $i$ at time $t=0$. Thus, $\varepsilon_t^\pi = 1$ and $\varepsilon_t^{i} = 0$.
+    \begin{alignat*}{3}
+        \mathbb{E}\left[X_0^\pi\right] &= \Phi\cdot0+ A^{-1} \begin{bmatrix}1 \\ 0\end{bmatrix} &=& \begin{bmatrix}1 \\ a_{2,1}' \end{bmatrix} \\
+        \mathbb{E}\left[X_1^\pi\right] &= \Phi \mathbb{E}\left[X_0\right] + A^{-1} \begin{bmatrix}0 \\ 0\end{bmatrix} &=& \Phi\begin{bmatrix}1 \\ a_{2,1}' \end{bmatrix} \\
+        \mathbb{E}\left[X_2^\pi\right] &= \Phi \mathbb{E}\left[X_1\right] + A^{-1} \begin{bmatrix}0 \\ 0\end{bmatrix} &=& \Phi^2\begin{bmatrix}1 \\ a_{2,1}' \end{bmatrix} \\
+        \implies \mathbb{E}\left[X_H^\pi\right] &= \Phi^{H}\begin{bmatrix}1 \\ a_{2,1}' \end{bmatrix}
+    \end{alignat*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Remarks on IRFs Derived from a SVAR}
+    Similarly, the impulse response to a 1 percentage point shock in $i_t$ is given as follows. Notice that now there is no contemporaneous response in $\pi$ the because it is ordered first.
+    \begin{alignat*}{3}
+        \mathbb{E}\left[X_H^i\right] &= \Phi^{H}\begin{bmatrix}0 \\ 1 \end{bmatrix}
+    \end{alignat*}
+    Also notice that both sets of impulse responses are $2 \times 1$ vectors (in general, they will be $N \times 1$ where $N$ is the number of variables in the VAR). The first element is the response of the first variable, $\pi$, while the second element is the response of the second variable, $i$. In both cases, we iterate the VAR forward by applying the reduced-form autoregressive coefficient matrix $\Phi$ to the initial response.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Remarks on IRFs Derived from a SVAR}
+    \framesubtitle{Continued}
+    Also notice that forecasts and impulse responses are identical except that they use different initial values.
+    \begin{itemize}
+        \item For real-time forecasts, we iterate the VAR forward starting at the latest observations of the series that we have. For impulse responses, we iterate forward starting from the contemporaneous impact of the structural shocks. 
+        \item For impulse responses, we need to the how the reduced-form innovations relate to the structural innovations of the system (via $A^{-1}$) in order to start at the correct initial values. When forecasting, we only need to know the dynamics of the system as encoded in $\Phi$.
+    \end{itemize}
+    Last, recall that in the AR(1) model we required $\phi<1$ for the AR(1) to be considered stable. The analogue in VARs is the requirement that all of the eigenvalues of $\Phi$ lie within the unit circle in modulus.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Other Results from Identified SVARs}
+    \textbf{Historical Decompositions}: Derives the contributions of the structural shocks to the endogenous variables in driving them away from their steady-state. \CR
+    \textbf{Forecast Error Variance Decompositions}: Derives how much of the variance of the forecast errors at some horizon $h$ of the endogenous variables is attributable to each structural shock.
+\end{frame}
+
+% \subsection{SVAR of the New Keynesian Model}
+% \begin{frame}
+%     \frametitle{3-Equation VAR}
+%     Let $\tilde{y}_t$, $\pi_t$, and $i_t$ be the three variables of interest. We aim to analyze (i) dynamics and (ii) causality between the variables.\CR
+%     We write the structural VAR as follows.
+    
+% \end{frame}
+
+% \begin{frame}
+%     \frametitle{Simplifying the Model: : $C_t, \pi_t, i_t$}
+%     Instead of using the output gap, 
+% \end{frame}
+
+\begin{frame}
+    \frametitle{Equivalence of IRFs Derived from VARs and LPs}
+    ``Specifically, any LP impulse response function can be obtained through an appropriately ordered recursive VAR, and any (possibly nonrecursive) VAR impulse response function can be obtained through a LP with appropriate control variables.'' (\textcite{PlagborgMollerWolf2021}) \CR
+    The main result of recent work is an equivalence result between IRFs derived from LPs and VARs in population (up to a scaling factor). Moreover, any identification scheme implementable in a SVAR can be done in an LP.\footnote{Think about how you would do this!} Note, however, that there are differences between the two approaches in small samples/with limited lags, and that IRFs from LPs (since they are estimated locally) can be erratic whereas IRFs from VARs impose a structure on their shape. This means that VAR IRFs tend to be smoother than their LP counterparts. \CR
+    A current working paper including the same researchers shows that IRFs from VARs and LPs are on opposite ends of the bias-variance tradeoff (\textcite{MontielOleaEtAl2025}): LPs have lower bias, higher variance whereas VARs have higher bias, lower variance. There exist mixed recommendations on which estimator to use in which context (number of lags, horizons, et cetera).
+\end{frame}
+
+\begin{frame}
+    \frametitle{Intuition for Equivalence of IRFs Derived from VARs and LPs}
+    First notice that by FWL, the LP regression reduces to the univariate regression of $Y$ on the shock where both variables are orthogonalized with respect to lags of the other variables in the system. \CR
+    Running an LP with a shock is equivalent to running an Cholesky-identified SVAR with the shock ordered first. The matrix algebra works out such that the lags of the other variables are again partialled out with respect to the shock and we are left with the same estimator as the above times a constant that does not depend on the horizon $h$.
+\end{frame}
+
+\begin{frame}
+    \frametitle{IRFs from SVARs and LPs as Forecasts}
+    ``Since impulse responses are just forecasts, LP and VAR impulse response estimands coincide in population.'' (\textcite{PlagborgMollerWolf2021}) \CR
+    One way of thinking about IRFs is as a forecast in which the system is shocked at time $t$. In a VAR, the successive application of the matrix $\Phi$---the estimated autoregressive dynamics of the system---yields a forecast as to what the shock will cause in the system in subsequent periods. The LP does this same thing without estimating the system's autoregressive dynamics directly.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Common Misconceptions about VARs vs. LPs}
+    According to \textcite{PlagborgMollerWolf2021}, the following are common misconceptions:
+    \begin{enumerate}
+        \item ``VAR impulse response estimators are generally more efficient than local projection estimators'';
+        \item ``local projections are generally more robust to misspecification than VARs'';
+        \item ``SVAR analysis is required when implementing nonrecursive, non-IV identification schemes''; and
+        \item ``simple SVAR methods cannot be used when the structural shock of interest is noninvertible''.
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Some Useful Resources}
+    \begin{itemize}
+        \item See the \textbf{\textcite{Ramey2016}} chapter in the Handbook of Macroeconomics for the definitive treatment of macroeconomic shock identification.
+        \item See \textbf{\textcite{NakamuraSteinsson2018}} for an overview of identification in macro. 
+        \item Much of this presentation's coverage of VARs is indebted to Ambrosio Cesa-Bianchi's slides, \href{https://github.com/ambropo/VAR-Toolbox/blob/main/VAR_Primer_Slides.pdf}{\textcolor{blue}{\textit{A Primer on Vector Autoregression}}}. He has also published a codebase called the VAR Toolbox that you might find helpful. 
+        \item For a thorough treatment of time series methods prior to the 2000s, see \textbf{\textcite{Hamilton1994}}.
+    \end{itemize}
+\end{frame}
+
+\references
+% \final{}{}{Contact: \href{mailto:arap15@upenn.edu}{arap15@upenn.edu}}
+
+\appendices
+\section{Supplemental Material by Section}
+\subsection{Time Series Data \& Models}
+\begin{frame}
+    \label{frame:data_types}
+    \frametitle{Terminology \& Notation}
+    \framesubtitle{Types of Data}
+    \APButton{frame:growth_rates}{Back}{1}
+    We call $\left\{x_i\right\}_{i=1}^N$ cross-sectional data if each observation is indexed by a cross-sectional variable. \CR
+    We call $\left\{x_t\right\}_{t=0}^T$ a time series if each observation is indexed by time. \CR
+    Data series that are indexed by time and a cross-sectional variable are known as panel data and are denoted using a subscript for time and for the cross-sectional variable: $\left\{x_{i,t}\right\}_{i=1,t=0}^{N,T}$.\CR
+    Due to characteristics particular to time series data, we cannot na\"ively use the exact same econometrics when estimating effects in the time series.
+\end{frame}
+
+\begin{frame}
+    \label{frame:leads_lags}
+    \frametitle{Terminology \& Notation}
+    \framesubtitle{Leads \& Lags}
+    \APButton{frame:growth_rates}{Back}{1}
+    Consider the following time series (where some of the notation from the previous slide is omitted to reflect a general case):
+    $$\left\{x_t\right\} \coloneq \left\{\dots, x_{t-5}, \dots, x_{t-2},x_{t-1},x_t,x_{t+1},x_{t+2},\dots,x_{t+5},\dots \right\}$$
+
+    The lags of observation $x_t$ are comprised by the set $\left\{x_{t-h}\right\}_{h>0} \subset \left\{x_t\right\}$. Similarly, the leads of observation $x_t$ comprised by the set $\left\{x_{t+h}\right\}_{h>0} \subset \left\{x_t\right\}$. \CR
+
+    As such, we call $x_{t-1}$ and $x_{t-5}$ the first and fifth lags of $x_t$, respectively, while $x_{t+1}$ and $x_{t+5}$ are the first and fifth leads of $x_t$, respectively.
+
+    The $h^{\text{th}}$ difference of the time series is defined as recursively mapping $\left\{x_{t}\right\} \mapsto \left\{x_{t} - x_{t-1}\right\}$ for $h$ times. For example, the first difference is $\left\{x_{t} - x_{t-1}\right\}$; the second difference is $\left\{x_{t} - 2x_{t-1} + x_{t-2}\right\}$, et cetera.
+\end{frame}
+
+\begin{frame}
+\label{frame:cumulating_log_differences}
+\APButton{frame:log_differences}{Back}{1}
+\frametitle{Cumulating Log-Differences}
+Note that for any two periods $t=0$ and $t=\tau>0$
+\begin{alignat*}{2}
+\sum_{t=1}^{\tau}\left(\ln(x_t) - \ln(x_{t-1})\right) &= \ln(x_\tau) + \dots - \color{red}\cancel{\color{black}\ln(x_{t})} \color{black}+ (\color{red}\cancel{\color{black}\ln(x_{t})} \color{black}- \color{blue}\cancel{\color{black}\ln(x_{t-1}\color{black})}\color{black}) + \color{blue}\cancel{\color{black}\ln(x_{t-1})} \color{black} + \\&\quad \dots - \ln(x_0) \\
+&= \ln(x_\tau) - \ln(x_0).
+\end{alignat*}
+We start from \eqref{equation:product_formula}:
+\begin{alignat*}{2}
+    x_0\prod_{t=1}^{\tau}(1+g_t) &= x_\tau \\
+    \ln \left(\prod_{t=0}^{\tau}(1+g_t)\right) &= \ln(x_\tau)-\ln(x_0) \\
+    \implies \sum_{t=0}^{\tau}g_t \approx  \prod_{t=0}^{\tau}(1+g_t) &= \exp(\ln(x_\tau)-\ln(x_0)) = \exp\left(\sum_{t=1}^\tau \left[\ln(x_t) - \ln(x_{t-1})\right]\right)
+\end{alignat*}
+\end{frame}
+
+\subsection{Motivation for VARs \& LPs}
+\begin{frame}
+    \label{frame:NK_model}
+    \frametitle{The 3-Equation New Keynesian Model}
+    \APButton{frame:from_theory_to_empirics}{Back}{1}
+    Consider the following variation on the canonical log-linearized 3-equation New Keynesian model:
+    \begin{alignat}{2}
+    \label{equation:NK_Euler} \tag{Euler/DIS} \tilde{y}_{t} &= \mathbb{E}_{t}\left[\tilde{y}_{t+1}\right]-\frac{1}{\sigma}(i_{t}-\mathbb{E}_{t}\left[\pi _{t+1}\right]-r_t^*) \\
+    \label{equation:NK_Phillips} \tag{NK Phillips Curve} \pi_t &= \kappa \tilde{y}_t + \beta \mathbb{E}_{t}\left[\pi _{t+1}\right]\\
+    \label{equation:NK_Taylor} \tag{Taylor Rule} i_t &= \rho_t + \phi^{\pi}\pi_t + \phi^{y}\tilde{y}_t
+    \end{alignat}
+    where
+    \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.35\textwidth}
+    $\tilde{y}_t$: output gap \\
+    $i_t$: nominal interest rate \\
+    $\pi_t$: the inflation rate \\
+    $r_t^*$: the natural rate of interest \\
+    $\rho_t$: monetary policy shocks \\
+    \end{column}
+    \begin{column}{0.65\textwidth}
+    $\beta$: discount factor \\
+    $\sigma$: inverse intertemporal elasticity of substitution \\
+    $\phi^\pi, \phi^y$: parameters governing forcefulness of monetary policy response to $\pi$ and $\tilde{y}$\\
+    $\kappa$ contemporaneously relates the output gap and inflation\\
+    \end{column}
+    \end{columns}
+    \hspace{3cm} \\
+    Note that this model has many flaws (for instance, supply-side constraints and financial constraints are not modeled; an output gap tomorrow is the same as an output gap today, there are many equilibria if the Taylor rule is misspecified), but it's a useful starting point.
+\end{frame}
+
+\begin{frame}
+    \frametitle{The New Keynesian Model}
+    \framesubtitle{Continued}
+    \APButton{frame:from_theory_to_empirics}{Back}{1}
+    \begin{alignat*}{2}
+    \tag{Euler/DIS} \tilde{y}_{t} &= \mathbb{E}_{t}\left[\tilde{y}_{t+1}\right]-\frac{1}{\sigma}(i_{t}-\mathbb{E}_{t}\left[\pi _{t+1}\right]-r_t^*) \\
+    \tag{NK Phillips Curve} \pi_t &= \kappa \tilde{y}_t + \beta \mathbb{E}_{t}\left[\pi _{t+1}\right] \\
+    \tag{Taylor Rule} i_t &= \rho_t + \phi^{\pi}\pi_t + \phi^{\tilde{y}}\tilde{y}_t
+    \end{alignat*}
+    Our main variables of interest are $\tilde{y}_t, i_t, and \pi_t$. How do these comove?
+    \begin{itemize}
+     \item According to this model, $\tilde{y}_t$ and $\pi_t$ both positively feed into each other.
+     \item The central bank follows the Taylor Rule, setting nominal interest rates in order to either stimulate ($i_t\downarrow \implies \tilde{y}_t, \pi_t \uparrow$) or restrain ($i_t \uparrow \implies \tilde{y}_t, \pi_t \downarrow$) the economy.
+     \item This should align with your intuition: During recessions, the Fed stimulates demand in the economy by cutting interest rates. Too-low rates for too long can cause inflation, which the Fed combats by raising rates. Higher rates then slow down real activity in the economy and induce a recession. 
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{The New Keynesian Model}
+    \framesubtitle{Continued}
+    \APButton{frame:from_theory_to_empirics}{Back}{1}
+    \begin{alignat*}{2}
+    \tag{Euler/DIS} \tilde{y}_{t} &= \mathbb{E}_{t}\left[\tilde{y}_{t+1}\right]-\frac{1}{\sigma}(i_{t}-\mathbb{E}_{t}\left[\pi _{t+1}\right]-r_t^*) \\
+    \tag{NK Phillips Curve} \pi_t &= \kappa \tilde{y}_t + \beta \mathbb{E}_{t}\left[\pi _{t+1}\right] \\
+    \tag{Taylor Rule} i_t &= \rho_t + \phi^{\pi}\pi_t + \phi^{\tilde{y}}\tilde{y}_t
+    \end{alignat*}
+    The model parametrizes the intuition that all of these macroeconomic variables are correlated.
+    \begin{itemize}
+        \item So if we were to see both output and inflation rising in the data, how would we know which came first...
+        \item ...or did both rise because interest rates were low?
+        \item This simultaneity is the macro rehash of the chicken and egg problem.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{From Macroeconomic Theory to Empirics}
+    \framesubtitle{Redux}
+    \APButton{frame:from_theory_to_empirics}{Back}{1}
+    The 3-equation New Keynesian model is a simple example of a dynamic stochastic general equilibrium model (DSGE). DSGE models are typically \textit{calibrated} by matching model predictions with empirical estimates (e.g., stable long-run trends, micro-data evidence, IRF matching) or \textit{estimated} (e.g., via maximum likelihood of the model). Models are necessary to understand causal mechanisms and run counterfactual analyses, but they must first be optimized and evaluated against actual data. 
+\end{frame}
+
+\subsection{Local Projections (LPs)}
+
+\begin{frame}
+    \label{frame:LP_estimation_assumptions}
+    \frametitle{LP Estimation Assumptions}
+    \APButton{frame:local_projections}{Back}{1}
+    It is most common to directly estimate LPs as OLS or IV regressions. As such, the standard OLS assumptions must be met:
+    \begin{itemize}
+        \item \textbf{Linearity}: The dynamics of the system can locally be represented or approximated by a linear regression
+        \item \textbf{No Omitted Variables}: $\rho_{x_t,\varepsilon_{t+h}^{(h)}} = 0 \ \forall \ t$
+        \item \textbf{No Multicollinearity}: $\rho_{x_ix_j} = 0 \ \forall \ i \neq j$
+        \item \textbf{Normality of Residuals} (Optional): $\varepsilon_{t+h}^{(h)} \sim \mathcal{N}(0, \sigma_{\varepsilon^{(h)}}^2) \ \forall\  t$
+        \begin{itemize}
+            \item \textbf{Homoskedasticity}: $\sigma^2_{\varepsilon^{(h)}} = \sigma^2_{\varepsilon_{t+h}^{(h)}} = \sigma^2_{\varepsilon_{s+h}^{(h)}} \ \forall \ t \neq s$
+            \item \textbf{No Autocorrelation}: $|\rho_{\varepsilon_{t+h}^{(h)}\varepsilon_{s+h}^{(h)}}| \neq 1 \ \forall \ t \neq s$
+            \item One typically always uses robust standard errors when computing LPs which corrects for heteroskedasticity.
+            \item The Newey-West (heteroskedasticity- and autocorrelation-consistent) estimator is sometimes used to calculate standard errors when autocorrelation between the residuals is a concern. \textcite{Jorda2005} used the same number of lags in the Newey-West kernel as the forecast horizon, but you can just use the same number of lags as included of the control variables in the RHS of the LP. Usually, if you estimate the LP in log-levels and control for lags of the LHS variable, you do not need to worry about this.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\subsection{Vector Autoregressions (VARs)}
+\subsubsection{Theory}
+\begin{frame}
+    \label{frame:VARs_supplementary}
+    \APButton{frame:VARs}{Back}{1}
+    \frametitle{Vector Autoregressions}
+    A VAR is a system of jointly-estimated equations which models the evolution and dynamics of the variables it contains as a linear combination of their residuals. VARs are an extension of autoregressive processes. Let 
+    \begin{itemize}
+    \item $N$ be the number of variables included in the VAR;
+    \item $T$ the total number of time periods for which data is available; and
+    \item $p$ the number of lags of the variables included in the VAR.
+    \end{itemize} 
+    A VAR(1) process takes the following form:
+    \begin{alignat*}{2}
+    A\textbf{X}_t = B\textbf{X}_{t-1} + \varepsilon_t
+    \end{alignat*}
+    As with AR(p) processes, one can have VAR(p) processes:
+    \begin{alignat*}{2}
+    A\textbf{X}_t = B_1\textbf{X}_{t-1} + B_2\textbf{X}_{t-2} + \dots + B_{p-1}\textbf{X}_{t-(p-1)} + B_p\textbf{X}_{t-p} + \varepsilon_t
+    \end{alignat*}
+     For simplicity's sake, we will focus on VAR(1) for a reason that will become apparent in a few slides. 
+\end{frame}
+
+\begin{frame}
+    \frametitle{Structural Vector Autoregressions}
+    Assume that the data is balanced. The structural form of a VAR is given as
+    \begin{alignat}{2}
+    \label{equation:VAR_structural}
+    \tag{Structural VAR(p)} A\textbf{X}_t & = \sum_{\tau=1}^{p} B_\tau \textbf{X}_{t-\tau} + \varepsilon_t \\
+    \tag{Structural VAR(1)} \quad  A\textbf{X}_t & = B\textbf{X}_{t-1} + \varepsilon_t
+    \end{alignat}
+    where 
+    \begin{itemize}
+        \item $\textbf{X}_{t-\tau}$ ($N \times (T-p)$ for $\tau \in \left\{0,\dots,p-1 \right\}$\footnote{Note that in the this appendix section, I write VARs in the way one would mechanically set up the matrices. To convert from this version to the standard representation, simply substitute the time series vectors in the matrices (bold) for their scalar counterparts (normal typeface). For example, the dimensions of $X_{t-\tau}$ would thus be $N \times 1$.}) is a matrix of endogenous variables;
+        \item $A$ ($N \times N$), the \textbf{inverse impact matrix}, encodes the contemporaneous relationship between the variables in $X$ (thus, if it exists, $A^{-1}$ is the impact matrix);
+        \item $B$ ($N \times N$), known as the \textbf{structural coefficient matrix}, describes the autoregressive dynamics of the system; and
+        \item $\varepsilon_t$ ($N \times (T-p)$) are the \textbf{structural residuals/innovations (shocks)} of the VAR; and
+        \item $\Sigma \coloneq\mathbb{E}\left[\varepsilon_t\varepsilon_t'\right]$ ($N \times N$) is the \textbf{structural covariance matrix}.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{VARs as Linear Systems of Equations}
+    \framesubtitle{and the Etymology of ``\textit{Vector} Autoregression''}
+    The matrix representation of $\textbf{X}$ as stacked vectors is equivalent to writing down the VAR as a system of linear equations. In the example where $N = 2$, $p = 1$, and $\textbf{x}_t^{1 \prime}, \textbf{x}_t^{2 \prime}, \mathbf{\varepsilon}_t^{1 \prime}, \mathbf{\varepsilon}_t^{2 \prime} \in \mathbb{R}^{T-1}$:
+    \begin{alignat*}{2}
+    \underbrace{\begin{bmatrix} 
+        a_{1,1} & a_{1,2} \\ a_{2,1} & a_{2,2}
+    \end{bmatrix}}_A
+    \underbrace{\begin{bmatrix}
+        \textbf{x}^1_t \\ \textbf{x}^2_t
+    \end{bmatrix}}_{X_t}
+    =
+    \underbrace{\begin{bmatrix} 
+        b_{1,1} & b_{1,2} \\ b_{2,1} & b_{2,2}
+    \end{bmatrix}}_{B}
+    \underbrace{\begin{bmatrix}
+        \textbf{x}^1_{t-1} \\ \textbf{x}^2_{t-1}
+    \end{bmatrix}}_{X_{t-1}}
+    +
+    \underbrace{\begin{bmatrix}
+        \varepsilon^1_{t} \\ \varepsilon^2_{t}
+    \end{bmatrix}}_{\varepsilon_t} \\
+    \iff \begin{cases}
+    a_{1,1}\textbf{x}_{t}^1 + a_{1,2}\textbf{x}_{t}^2 = b_{1,1}\textbf{x}_{t-1}^1 + b_{1,2}\textbf{x}_{t-1}^2 + \mathbf{\varepsilon}_t^1 \\
+    a_{2,1}\textbf{x}_{t}^2 + a_{2,2}\textbf{x}_{t}^2 = b_{2,1}\textbf{x}_{t-1}^1 + b_{2,2}\textbf{x}_{t-1}^2 + \mathbf{\varepsilon}_t^2
+    \end{cases}
+    \end{alignat*}
+    where
+    $\textbf{x}^{\cdot}_{t} = 
+    \begin{bmatrix}
+    \textbf{x}^\cdot_T & \textbf{x}^\cdot_{T-1} & \cdots & \textbf{x}^\cdot_{3} & \textbf{x}^\cdot_{2} 
+    \end{bmatrix}$ and 
+    $\textbf{x}^{\cdot}_{t-1} = 
+    \begin{bmatrix}
+    \textbf{x}^\cdot_{T-1} & \textbf{x}^\cdot_{T-2} & \cdots & \textbf{x}^\cdot_{2} & \textbf{x}^\cdot_{1} 
+    \end{bmatrix}
+    ~\forall~\cdot \in \left\{1,2 \right\}$ since $p=2$. Writing out VARs this way also makes it apparent where the ``vector'' part comes in. Here, $\textbf{x}^\cdot_t$ does not indicate a generic observation at time $t$, but the $1 \times (T-p)$ vector of observations of variable $\cdot$ beginning at time $p+1$ and ending at time $T$. \CR
+    More generally, $\textbf{x}_{t-\tau}^\cdot \coloneq \begin{bmatrix}\textbf{x}^{\cdot}_{T-\tau} & \cdots & \textbf{x}^{\cdot}_{p-\tau}\end{bmatrix}~\forall~\tau\in \left\{0,\dots,p-1 \right\}, ~\forall~\cdot \in \left\{1,2 \right\}$.
+\end{frame}
+
+    % \begin{alignat*}{3}
+    % \iff \begin{cases}
+    % a_{1,1}x_{1,1} + a_{1,2}x_{1,2} + \dots + a_{1,T-1}x_{1,T-1} + a_{1,T}x_{1,T} = a_{1,1}x_{1,1} + a_{1,2}x_{1,2} + \dots + a_{1,T-1}x_{1,T-1} + a_{1,T}x_{1,T} + \varepsilon_t \\ 
+    % \vdots \\
+    % a_{n,1}x_{1,1} + a_{n,2}x_{1,2} + \dots + a_{n,T-1}x_{1,1} + a_{1,T}x_{1,T}
+    % \end{cases}
+    % \end{alignat*}
+% \begin{frame}
+%     \frametitle{General Form of a VAR}
+%     \begin{alignat*}{2}
+%     X_t \coloneq \begin{bmatrix} x_1^t \\ x_2^t \\ \vdots \\ x_{n-1}^t \\ x_n^t \end{bmatrix} = \begin{bmatrix} x_{1,1} & x_{1,2} & \dots & x_{1,T-1} & x_{1,T} \\ x_{2,1} & x_{2,2} & \dots & x_{2,T-1} & x_{2,T} \\ \vdots & & \vdots & & \vdots \\ x_{n-1,1} & x_{n-1,2} & \dots & x_{n-1,T-1} & x_{n-1,T}\\ x_{n,1} & x_{n,2} & \dots & x_{n,T-1} & x_{n,T} \end{bmatrix}
+%     \end{alignat*}
+%     $n$ is the number of distinct variables included in the VAR and $T$ is the number of periods for which data is available.
+% \end{frame}
+
+\begin{frame}
+    \frametitle{Companion Representation of a VAR}
+    \framesubtitle{From VAR(p) to VAR(1)}
+    Any (S)VAR(p) can cleverly written in (S)VAR(1) form. For example,
+    \begin{alignat*}{2}
+    A\textbf{X}_t & = B_1\textbf{X}_{t-1} + B_2\textbf{X}_{t-2} + \dots + B_p\textbf{X}_{t-p} + \varepsilon_t
+    \intertext{becomes}
+        \underbrace{\begin{bmatrix}
+            A & 0 & 0 & 0 \\
+            0 & I & 0 & 0 \\
+            0 & 0 & \ddots & 0 \\
+            0 & 0 & 0 & I
+        \end{bmatrix}}_{A^{\prime}}
+        \underbrace{\begin{bmatrix}
+            \textbf{X}_t \\
+            \textbf{X}_{t-1} \\
+            \vdots \\
+            \textbf{X}_{t-p+1}
+        \end{bmatrix}}_{\textbf{X}_t^{\prime}}
+        & =
+        \underbrace{\begin{bmatrix}
+            B_1 & B_2 & \cdots & B_p \\
+            I & 0 & 0 & 0 \\
+            0 & \ddots & 0 & 0 \\
+            0 & 0 & I & 0
+        \end{bmatrix}
+        \begin{bmatrix}
+            \textbf{X}_{t-1} \\
+            \textbf{X}_{t-2} \\
+            \vdots \\
+            \textbf{X}_{t-p}
+        \end{bmatrix}}_{\textbf{X}_{t-1}^{\prime}}
+        +
+        \underbrace{\begin{bmatrix}
+            \varepsilon_t \\
+            0 \\
+            \vdots \\
+            0
+        \end{bmatrix}}_{\varepsilon_t^{\prime}}
+    \end{alignat*}
+    where $I$ is an identity matrix. As this notation is simpler, cleaner, and more convenient, it is typical in the literature to report the companion (VAR(1)) form of a VAR(p). The remainder of these notes will focus on VAR(1) processes with the understanding that the two representations are equivalent. 
+\end{frame}
+
+\begin{frame}
+    \frametitle{Reduced-Form Vector Autoregressions}
+    If the matrix $A$ is invertible, we can obtain the reduced form of the VAR.
+    \begin{alignat}{2}
+    \label{equation:VAR_reduced}
+    \notag \textbf{X}_t & = A^{-1}B\textbf{X}_{t-1} + A^{-1}\varepsilon_t \\
+    \tag{Reduced-Form VAR(p)} \textbf{X}_t & = \sum_{\tau=1}^{p}\Phi_\tau \textbf{X}_{t-\tau} + \nu_t \\
+    \tag{Reduced-Form VAR(1)} \textbf{X}_t & = \Phi \textbf{X}_{t-1} + \nu_t 
+    \end{alignat}
+    where
+    \begin{itemize}
+    \item $\Phi$ ($N \times N$) is the \textbf{reduced-form coefficient matrix} and
+    \item $A^{-1}\varepsilon_t \equiv \nu_t$ ($N \times (T-p)$) are the \textbf{reduced-form residuals/innovations)} of the VAR; and
+    \item $\Omega \coloneq \mathbb{E}\left[\nu_t\nu_t'\right]$ ($N \times N$) is the \textbf{reduced-form covariance matrix}.
+    \end{itemize}
+    Note that unlike in the SVAR, the reduced-form coefficient ($\Phi$) and covariance ($\Omega$) matrices can be directly estimated. To retrieve the latter, we need the reduced-form residuals which are given by $\nu_t = \textbf{X}_t - \Phi\textbf{X}_{t-1}$. \CR
+    The acronym ``VAR'' usually refers to the reduced-form VAR while ``SVAR'' is used when referring to the structural VAR.
+\end{frame}
+
+\begin{frame}
+    \frametitle{The Non-invertibility Problem}
+    As stated previously, one can generally write down the (log-)linearized equilibrium to a macroeconomic model as a system of difference equations. However, we might not be able to estimate the structural model as a VAR because there is no linear rotation of the reduced-form innovations that allows us to recover the structural shocks. Non-invertibility is equivalent to the observables of the model not containing enough information to reveal the state variables (and their associated structural shocks). For more on non-invertibility, see \textcite{FernandezVillaverdeEtAl2007}. \CR
+    The SVARs considered here will not encounter this issue as we will not be mapping the SVAR to a DSGE model.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Augmented VARs}
+    (S)VARs can be augmented by including a constant term, deterministic terms, and exogenous variables. Consider the following reduced-form VAR.
+    \begin{alignat*}{2}
+        \textbf{X}_t & = \alpha + \Phi \textbf{X}_{t-1} + \Gamma \textbf{D}_t + \Psi \textbf{Z}_t + \nu_t
+    \end{alignat*}
+    where
+    \begin{itemize}
+        \item $\alpha$ is a deterministic constant trend added to all variables in each period; 
+        \item $\textbf{D}_t$ is a matrix of other deterministic terms with associated coefficient matrix $\Gamma$; and
+        \item $\textbf{Z}_t$ is a matrix of variables exogenous to the system $\textbf{X}_t$ with associated coefficient matrix $\textbf{Z}_t$.
+    \end{itemize}
+    Note that the constant term can also be modeled by including a column of 1's in front of $\textbf{X}_t$
+\end{frame}
+
+\begin{frame}
+    \frametitle{The Wold Representation of a VAR}
+    We retrieve the Wold representation of a VAR by recursively substituting for past values in the reduced-form VAR equation.
+    \begin{alignat}{2}
+        \label{equation:VAR_Wold}
+        \notag \textbf{X}_t & =\Phi\textbf{X}_{t-1} + \nu_t \\
+        \notag & = \Phi(\Phi X_{t-2}+\nu_{t-1}) + \nu_t = \Phi^2X_{t-2} + \Phi \nu_t + \nu_t \\
+        \notag & \ \; \vdots \\
+        \text{(Wold Representation)} \quad \textbf{X}_t & = \Phi^t \textbf{X}_0 + \sum_{\tau=0}^{t-1}\Phi^{\tau}\nu_{t-\tau} \\
+        \notag & = \underbrace{\Phi^t \textbf{X}_0}_{\mathclap{\substack{\text{Initial} \\ \text{Condition}}}} + \underbrace{\sum_{\tau=1}^{t-1}\Phi^{\tau}\nu_{t-\tau}}_{\text{Past Residuals}} + \underbrace{\nu_t}_{\text{Last Residual}}
+    \end{alignat}
+    The Wold representation of the VAR expresses the system of difference equations as the sum of an initial condition and past residuals. 
+\end{frame}
+
+\begin{frame}
+    \frametitle{VAR Stability}
+    We require that the variables in a VAR be covariance stationary. However, if this is not the case, then iteratively applying $\Phi$ to $X_t$ causes the system to explode. Taking $t \rightarrow \infty$ in the Wold representation, we get: 
+    \begin{alignat*}{2}
+        \textbf{X}_t & = \Phi^\infty \textbf{X}_{t-\infty} + \sum_{\tau=0}^{\infty}\Phi^{\tau}\nu_{t-\tau}
+    \end{alignat*}
+    \textbf{VAR Stability}: A VAR is called stable if and only if all of the eigenvalues of $\Phi$ are less than 1 in modulus, which causes the unconditional mean of $X_t$ to equal 0 or the constant $(I-\Phi)^{-1}\alpha$.
+    \begin{alignat*}{2}
+    ||\Phi - \lambda I|| & = 0;\ \lambda < 1 \implies \Phi^\infty = 0;\  \sum_{\tau=0}^{\infty} \Phi^\tau = (I-\Phi)^{-1} \quad &\text{(geometric series)} \\
+    \quad \mathbb{E}\left[\textbf{X}_t\right] & = \Phi^\infty \textbf{X}_{t-\infty} + \sum_{\tau=0}^{\infty}\Phi^{\tau}\mathbb{E}\left[\nu_{t-\tau}\right] = 0\quad &\text{(since $\mathbb{E}\left[\nu_{t-\tau}\right]=0$)}
+    \intertext{If $X_t$ contains a constant intercept term ($\alpha$), then the unconditional mean of $X_t$ equals:}
+    \mathbb{E}\left[\textbf{X}_t\right] & = \Phi^\infty \textbf{X}_{t-\infty} + \sum_{\tau=0}^{\infty}\Phi^{\tau}\mathbb{E}\left[\alpha\right] + \sum_{\tau=0}^{\infty}\Phi^{\tau}\mathbb{E}\left[\nu_{t-\tau}\right] = (I-\Phi)^{-1}\alpha\quad &\text{(since $\mathbb{E}\left[\nu_{t-\tau}\right]=0$).}
+    \end{alignat*}
+\end{frame}
+
+\subsubsection{Estimation, Identification, \& Causal Inference}
+\begin{frame}
+    \frametitle{Estimating VARs}
+    Recall that the matrices $A$ and $B$ and shocks $\varepsilon_t$ in the SVAR are all unknown and need to be estimated. We proceed by estimating the reduced-form VAR and employing various identification strategies to back out the structural coefficient and covariance matrices. 
+    \begin{alignat*}{2}
+    A\textbf{X}_t & = B \textbf{X}_{t-1} + \varepsilon_t
+    \end{alignat*}
+    We are able to estimate the VAR using OLS or Bayesian methods if the following conditions are met:
+    \begin{itemize}
+        \item $\mathbb{E}\left[\varepsilon_t\right]=0$
+        \item $\mathbb{E}\left[\varepsilon_t\varepsilon_t'\right]=\Sigma$ where $\Sigma$ is positive semi-definite and diagonal
+        \begin{itemize}
+            \item The structural shocks are not correlated with each other: $\mathbb{E}\left[\varepsilon_t\varepsilon_\tau^{\prime}\right] = 0 ~\forall~\tau \neq t$
+            \item More specifically, we require that $\Sigma = I$, meaning the structural shocks do not exhibit autocorrelation. If the structural shocks are autocorrelated, this calls into question the identification of the SVAR.
+        \end{itemize}
+        \item No serial correlation: $\mathbb{E}\left[\varepsilon_t\varepsilon_{t-\tau}'\right]$ for $\tau>0$
+    \end{itemize}
+    If the above assumptions are met, we are able to receive unbiased estimates for $\Phi \coloneq A^{-1}B$ and $\Omega \coloneq \mathbb{E}\left[\nu_t\nu_t^{\prime}\right]$ using OLS.
+\end{frame}
+
+\begin{frame}
+    \frametitle{The Identification Problem in VARs}
+    The estimated reduced-form VAR is useful for describing the dynamics of the data and for forecasting among other things, but it cannot be used for causal inference: It contains information about both structural contemporaneous relationships between the covariates and their relationships to lagged values. \CR
+    In other words, we retrieve estimates for $\Phi$ and $\Omega$ but we are interested in $B$ and $\Sigma$. Conducting causal inference using VARs requires us to move from the reduced-form VAR (which can be directly estimated) to the SVAR (which remains unobserved). For some identification strategies, this amounts to placing economically-meaningful (model-motivated) restrictions on the matrix $A$. 
+\end{frame}
+
+\begin{frame}
+    \frametitle{Causal Identification in VARs}
+    We will cover the following identification strategies, all of which are still referenced or extended in various directions in contemporary research.
+    \begin{enumerate}
+        \item Cholesky identification (``internal instruments'')
+        \begin{itemize}
+            \item Short-run restrictions
+            \item Long-run restrictions
+        \end{itemize}
+        \item Sign restrictions
+        \item Proxy SVAR (``external instruments'')
+    \end{enumerate}
+    While the basic implementations of these strategies have fallen out of favor, they are nevertheless important for understanding (1) how economic methodology and knowledge has improved; (2) the extensions of these identification strategies; and (3) what qualifies as a credible identification technique in macroeconomics.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Causal Inference in VARs}
+    Taking stock, we have:
+    \begin{alignat*}{3}
+        B & = A\Phi &\iff \Phi & = A^{-1}B & \\ 
+        \Sigma &= A\Omega A^{\prime} &\iff \Omega & = \mathbb{E}\left[\nu_t\nu_t^{\prime}\right] \\
+        &&&=\mathbb{E}\left[\left(A^{-1}\right)\varepsilon_t\varepsilon_t^{\prime}\left(A^{-1}\right)^{\prime}\right] \\
+        &&&= (A^{-1})\mathbb{E}\left[\varepsilon_t\varepsilon_t^{\prime}\right](A^{-1})^{\prime} \\
+        &&&= (A^{-1})\Sigma (A^{-1})^{\prime} \\
+        &&&= A^{-1}(A^{-1})^{\prime}
+    \end{alignat*}
+    Note that we get $N^2$ estimates for $\Phi$ and $\frac{N\left( N+1\right)}{2}$ for $\Omega$ due to its symmetry as the covariance matrix. In all, we obtain $\frac{3N^2+N}{2}$ coefficient estimates. However, $B$ and $A$ are both $N^2$ so the SVAR contains $2N^2$ coefficients. We are thus lacking $\frac{N(N-1)}{2}$ estimates. \CR
+    
+    For the next section, we will need to review some linear algebra.
+\end{frame}
+
+% \subsubsection{Linear Algebra Review}
+\begin{frame}
+    \frametitle{Linear Algebra Review}
+    \textbf{Triangle Factorization (LDU Decomposition)}: Any symmetric positive definite square matrix $\Omega$ has a unique representation of the form
+    $$\Omega = T\Sigma T'$$
+    where $T$ is a lower triangular matrix with 1's along the main diagonal (meaning $T^\prime$ is an upper triangular matrix with 1's along the main diagonal) and $\Sigma$ is a positive definite diagonal matrix. \CR
+    \textbf{Cholesky Decomposition}: Any symmetric positive definite square matrix $\Omega$ has a unique representation of the form
+    $$\Omega = T\Sigma^{1/2}(T\Sigma^{1/2})^{\prime} = PP^{\prime}$$
+    where $P \coloneq T\Sigma^{1/2}$ is positive, lower-triangular and $\Sigma^{1/2}$ is defined as the positive definite square matrix whose diagonal is the square root of the diagonal of $\Sigma$ from the triangle diagonalization. In other words, $\Sigma = \Sigma^{1/2} \Sigma^{1/2}$.
+\end{frame}
+
+\begin{frame}
+\frametitle{Linear Algebra Review}
+    \framesubtitle{Continued}
+    \textbf{LQ Decomposition}: Any real square matrix $\Omega$ can be decomposed as
+    $$\Omega = LQ$$
+    where $Q$ is an orthonormal matrix ($Q' = Q^{-1}$) and $L$ is a lower-triangular matrix. If $\Omega$ is invertible and the diagonal of $L$ is positive, then the decomposition is unique.
+\end{frame}
+
+% \subsubsection{Cholesky Identification}
+\begin{frame}
+\frametitle{Short-Run Restrictions via Cholesky Identification}
+    In the short run, suppose we have an economic theory or intuition that suggests that some variables do not contemporaneously affect other variables. For example, it might take a while for a change in interest rates to affect real variables. \CR
+    Consider the simple 3-variable VAR that contains interest rates, inflation, and output growth. We assume that interest rates contemporaneously respond to inflation and output growth but that it takes a while for their impact to be seen. How can we implement this assumption by manipulating the values in the matrix $A^{-1}$?
+    \begin{alignat*}{2}
+    \underbrace{\begin{bmatrix}
+     y_t \\
+     \pi_t \\
+     i_t
+    \end{bmatrix}}_{\textbf{X}_t}
+    &=
+    \underbrace{\begin{bmatrix}
+    a'_{1,1} & a'_{1,2} & a'_{1,3} \\ 
+    a'_{2,1} & a'_{2,2} & a'_{2,3} \\
+    a'_{3,1} & a'_{3,2} & a'_{3,3}
+    \end{bmatrix}}_{A^{-1}}
+    \underbrace{\begin{bmatrix}
+    b_{1,1} & b_{1,2} & b_{1,3} \\ 
+    b_{2,1} & b_{2,2} & b_{2,3} \\
+    b_{3,1} & b_{3,2} & b_{3,3}
+    \end{bmatrix}}_{B}
+    \underbrace{\begin{bmatrix}
+     y_{t-1} \\
+     \pi_{t-1} \\
+     i_{t-1}
+    \end{bmatrix}}_{\textbf{X}_{t-1}}
+    +
+    \underbrace{\begin{bmatrix}
+    a'_{1,1} & a'_{1,2} & a'_{1,3} \\ 
+    a'_{2,1} & a'_{2,2} & a'_{2,3} \\
+    a'_{3,1} & a'_{3,2} & a'_{3,3}
+    \end{bmatrix}}_{A^{-1}}
+    \underbrace{\begin{bmatrix}
+     \varepsilon^y_t \\
+     \varepsilon^\pi_t \\
+     \varepsilon^i_t
+    \end{bmatrix}}_{\varepsilon_t}
+    \end{alignat*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Short-Run Restrictions via Cholesky Identification}
+    \framesubtitle{Continued}
+    We implement the short-run restrictions by making $A^{-1}$ a lower-triangular matrix. In other words, we set $a'_{1,2} = a'_{1,3} = a'_{2,3} = 0$. Also note that the diagonal entries of $A^{-1}$ must be 1's since a structural shock of some magnitude in any given variable can only raise the value by that amount: thus, $a'_{1,1} = a'_{2,2} = a'_{3,3} = 1$. The other coefficients in $A^{-1}$ are still unknown. 
+    \begin{alignat*}{2}
+    \underbrace{\begin{bmatrix}
+     y_t \\
+     \pi_t \\
+     i_t
+    \end{bmatrix}}_{\textbf{X}_t}
+    &=
+    \underbrace{\begin{bmatrix}
+    1 & 0 & 0 \\ 
+    a'_{2,1} & 1 & 0 \\
+    a'_{3,1} & a'_{3,2} & 1
+    \end{bmatrix}}_{A^{-1}}
+    \underbrace{\begin{bmatrix}
+    b_{1,1} & b_{1,2} & b_{1,3} \\ 
+    b_{2,1} & b_{2,2} & b_{2,3} \\
+    b_{3,1} & b_{3,2} & b_{3,3}
+    \end{bmatrix}}_{B}
+    \underbrace{\begin{bmatrix}
+     y_{t-1} \\
+     \pi_{t-1} \\
+     i_{t-1}
+    \end{bmatrix}}_{\textbf{X}_{t-1}}
+    +
+    \underbrace{\begin{bmatrix}
+    1 & 0 & 0 \\ 
+    a'_{2,1} & 1 & 0 \\
+    a'_{3,1} & a'_{3,2} & 1
+    \end{bmatrix}}_{A^{-1}}
+    \underbrace{\begin{bmatrix}
+     \varepsilon^y_t \\
+     \varepsilon^\pi_t \\
+     \varepsilon^i_t
+    \end{bmatrix}}_{\varepsilon_t}
+    \end{alignat*}
+    We have $\Omega = A^{-1}\left(A^{-1}\right)^{\prime}$ where $A^{-1}$ is lower-triangular. We can retrieve the rest of the variables $\Omega = PP'$. Since $P$ is unique, the lower-triangular assumption on $A^{-1}$ implies $A^{-1} = P$. 
+\end{frame}
+
+\begin{frame}
+    \frametitle{Cholesky Identification}
+    In general, we implement the short-run restrictions in a VAR using a two-step process. 
+    \begin{enumerate}
+        \item First, we order the variables (when stacking the $\textbf{X}_t$ matrix) such that the variables that respond with lags to other variables are first while variables that that respond immediately to other variables are last. In general, when using Cholesky identification, for all variables in the VAR system, variables ordered later are assumed to not affect earlier variables contemporaneously.
+        \item Next, we use the Cholesky decomposition of $\Omega$ to identify $A^{-1}$. Being a covariance matrix, $\Omega$ is symmetric and positive semi-definite so it admits a unique Cholesky decomposition such that $\Omega$ = $PP'$.
+        $$\textbf{X}_t = A^{-1}B \textbf{X}_{t-1} + A^{-1}\varepsilon_t = \Phi\textbf{X}_{t-1} + \nu_t$$
+        From the reduced-form VAR, $\Phi = A^{-1}B$ and $\Omega = A^{-1}(A^{-1})^{\prime}$. Applying the Cholesky decomposition to $\Omega$, we have $\Omega = PP'$ where $P$ is positive semi-definite, and lower-triangular. Setting $A^{-1}=P$, we have identified the SVAR and can back out $B$ and $\varepsilon_t$ as follows:
+        \begin{alignat*}{2}
+        B & = A\Phi & = P^{-1}\Phi \\
+        \varepsilon_t & = A \nu_t
+        \end{alignat*}
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}
+\frametitle{Economic Interpretation of Cholesky Decomposition}
+    The key to understanding the identification is connecting the lower-triangular matrix that we get from the Cholesky decomposition to the impact matrix $A^{-1}$. 
+    \begin{alignat*}{2}
+    A^{-1} =
+    \begin{bmatrix}
+    1 & 0 & 0 \\ 
+    a'_{2,1} & 1 & 0 \\
+    a'_{3,1} & a'_{3,2} & 1
+    \end{bmatrix}
+    \end{alignat*}
+    Since the ordering and Cholesky decomposition forces $A^{-1}$ to be lower-triangular, you can see that the first structural shock $\varepsilon^{y}_t$ contemporaneously affects $y_t$, $\pi_t$, and $i_t$; $\varepsilon^{\pi}_t$ affects both $\pi_t$ and $i_t$ contemporaneously but not $y_t$; and the last structural shock $\varepsilon^{i}_t$ contemporaneously affects only $i_t$.\CR
+    Note that if we did not order interest rates last (below output growth and inflation), then the contemporaneous-exclusion restriction implicit in the Cholesky decomposition would not hold and the Cholesky decomposition of $\Omega$ would have a different interpretation. Also note that the Cholesky decomposition also implicitly assumes that inflation contemporaneously responds to output growth but output growth does not contemporaneously respond to inflation. 
+\end{frame}
+
+\begin{frame}
+    \frametitle{Long-Run Restrictions}
+    In short, we assume that the cumulative impact of some of the variables on others is 0 in the long run. For example, if in the long run we assume that supply-side shocks--not demand-side shocks--cumulatively determine of output, we can use this as a long-run restriction. \CR
+    From the Wold representation, the cumulative impact of the vector of structural shocks $\varepsilon_t$ on $\textbf{X}_t$ if the VAR is stable is given by:
+    \begin{alignat*}{2}
+    \textbf{X}_t = A^{-1}\varepsilon_t + BA^{-1}\varepsilon_t + B^2A^{-1}\varepsilon_t + \cdots + B^\infty A^{-1}\varepsilon_t &= \sum_{\tau=0}^{\infty}B^\tau A^{-1} \varepsilon_t = (I-B)^{-1}A^{-1}\varepsilon_t
+    \end{alignat*}
+    To implement the long-run restriction, define 
+    \begin{alignat*}{2}
+    \Lambda & \coloneq (I-B)^{-1}A^{-1} \\
+    \Omega^* & \coloneq \Lambda \Lambda' \\ 
+    & = (I-B)^{-1}A^{-1} \left((I-B)^{-1}A^{-1}\right)' \\
+    & = (I-B)^{-1}\left(A^{-1}\left(A^{-1}\right)'\right)\left((I-B)^{-1}\right)' \\
+    & = (I-B)^{-1}\Omega\left((I-B)^{-1}\right)'.
+    \end{alignat*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Long-Run Restrictions}
+    \framesubtitle{Continued}
+    Since $\Omega^*$ is positive semi-definite, it admits a (unique) Cholesky decomposition such that $\Omega^* = P^*\left(P^*\right)'$. To achieve identification, we set $A^{-1} = \left(I-B\right)P^*$. Note that $A^{-1}$ is not guaranteed to be triangular in this case. As before, once we have $A^{-1}$, we have $\varepsilon_t = A\nu_t$ and $\Sigma = A^{-1}\left(A^{-1}\right)'$, and so the SVAR is fully identified. \CR
+     In this case, one should be careful in ordering the variables in such a way that $P^{*}$ reflects the desired long-run restrictions: Variables not affected in the long-run by certain shocks should be ordered first while variables that affect other variables only in the short-run should be ordered last.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Final Remarks on Cholesky Identification}
+    In essence, Cholesky decompositions instrument shocks ordered later with shocks ordered earlier. For this reason, identification strategies that rely on the Cholesky decomposition are known as ``internal instruments'' approaches. \CR
+    Notice that applying the Cholesky decomposition for short- and long-run restrictions requires assumptions or information beyond the data: It is not an agnostic way of achieving identification. Using a different Cholesky ordering with the same data can produce radically different results. For this reason, it is seldom used in academia or policy analysis nowadays.
+\end{frame}
+
+% \subsubsection{Proxy Structural Vector Autoregressions}
+\begin{frame}
+    \frametitle{Proxy Structural Vector Autoregressions}
+    \framesubtitle{External Instruments}
+    \centering \Large Work-In-Progress
+\end{frame}
+
+% \subsubsection{Sign Restrictions}
+\begin{frame}
+    \frametitle{Sign Restrictions}
+    We impose sign restrictions on the elements of candidate matrices for $A^{-1}$ to achieve set identification. The sign-restrictions are typically informed by theoretical models or economic intuition. For instance, assume that interest rates and inflation are negatively related, interest rates and output growth are negatively related, and inflation and output growth are positively related.
+    \begin{alignat*}{2}
+        A^{-1} =
+        \begin{bmatrix}
+        1 & a'_{1,2} & a'_{1,3} \\ 
+        a'_{2,1} & 1 & a'_{2,3} \\
+        a'_{3,1} & a'_{3,2} & 1
+        \end{bmatrix}
+    \end{alignat*}
+    This sign restriction assumption mechanically looks like:
+    \begin{itemize}
+        \item $a'_{1,2} < 0,\ a'_{1,3} < 0$
+        \item $a'_{2,1} < 0 < a'_{2,3}$
+        \item $a'_{3,1} < 0 < a'_{3,2}$
+    \end{itemize}
+    Recall that the diagonal terms are always equal to 1: $a'_{1,1} = a'_{2,2} = a'_{3,3} = 1$.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Sign Restrictions}
+    \framesubtitle{Continued}
+    To implement the sign restrictions, first recall that $\Omega = A^{-1}\left(A^{-1}\right)' = PP'$ by Cholesky. For any orthonormal matrix, we have that $PP' = PQQ'P' = \left(PQ\right)\left(PQ\right)'$
+    \begin{enumerate}
+        \item Draw a random orthonormal matrix $Q^{(i)}$.
+        \item For that draw $Q^{(i)}$, calculate the matrix $PQ^{(i)}$.
+        \item If it conforms with the sign restrictions assumption, $PQ^{(i)}$ is a valid candidate matrix for $A^{-1}$. Note that $PQ^{(i)}$ no longer has to be lower-triangular.
+        \item Store $PQ^{(i)}$ and repeat the procedure.
+    \end{enumerate}
+    The sign restriction method lends itself nicely to Bayesian estimation because it can be easily implemented in a Gibbs sampler step. Applications and extensions of the sign restrictions used in identification are ubiquitous.
+\end{frame}
+
+\begin{frame}
+    \frametitle{Impulse Responses in a VAR}
+    The impulse response of variable $i$ to a shock in variable $j$ (where $i,j \in \left\{1,\dots,N\right\}$ at horizon $h$ is given by iterating the VAR forward:
+    \begin{alignat*}{2}
+    \text{IRF}_{i,j}^{(h)} \coloneq \frac{\partial \textbf{X}_{i}^{(h)}}{\partial \varepsilon_j} = s_i'\Phi^hA^{-1}s_j
+    \quad \text{where} \quad s_\cdot \coloneq \begin{cases} 1 \ \text{if} \ \text{row} = \cdot \\ 0 \ \text{otherwise}\end{cases}
+    %\quad e_i \coloneq \begin{bmatrix} 0 \\ \vdots \\ 0 \\ 1 \\ 0 \\ \vdots \\ 0 \end{bmatrix}
+    \end{alignat*}
+    Note: $s_\cdot$ is the $N \times 1$ column selection vector, which equals 1 if the row number is $\cdot$ and 0 otherwise. The ordering of the variables in $\textbf{X}$ determines the order of the structural shocks $\varepsilon_j$. \CR
+    Confidence intervals for VARs are typically calculated using a bootstrapping procedure that is provided in the estimation package that one is using to estimate the VAR.
+\end{frame}
+
+% \subsubsection{Historical Decompositions}
+\begin{frame}
+    \frametitle{Historical Decompositions}
+    \centering \Large Work-In-Progress
+\end{frame}
+
+% \subsubsection{Forecast Error Variance Decompositions}
+\begin{frame}
+    \frametitle{Forecast Error Variance Decompositions (FEVDs)}
+    \centering \Large Work-In-Progress
+\end{frame}
+
+\section{Derivations \& Proofs}
+\begin{frame}
+\frametitle{Proof: $g_t \approx \ln(x_t)-\ln(x_{t_1})$}
+\label{frame:growth_rates_proof}
+\APButton{frame:log_differences}{Back}{1}
+We start from the growth rates formula from earlier and take logarithms of both sides.
+\begin{align*}
+x_{\tau} &= x_{0}\prod_{t=1}^{\tau}(1+g_{t}) \\
+\ln(x_{\tau}) &= \ln(x_0) + \sum_{t=1}^{\tau}\ln(1+g_t) \\
+\ln(x_{\tau}) - \ln(x_0) &= \sum_{t=1}^{\tau}\ln(1+g_t) \\
+\ln(x_{t}) - \ln(x_{t-1}) &= \ln(1+g_t)
+\end{align*}
+The Taylor expansion of $\ln(1+x)$ around $x^*\approx0$ ($1+x^* \approx 1$) yields $\ln(1+x) \approx \ln(x^*) + \frac{x}{1+x^*} -\frac{{x^*}^2}{2(1+x^*)^2} = \ln(1) + x + 0 = x$. Thus:
+\begin{align*}
+\ln(x_{t}) - \ln(x_{t-1}) &\approx g_t \quad \square
+\end{align*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Proof: Annualizing Time Series Data}
+    \label{frame:annualizing_proof}
+    \APButton{frame:annualizing_growth_rates}{Back}{1}
+    Suppose you have a period-by-period growth rate $g_t$ and a ``secant'' growth rate $g_t^*$ between arbitrary points $x_t$ and $x_{t-h}$ and $x_{t-H}$, respectively. We wish to cast $g_t$ in terms of $g_t^*$. 
+    \begin{alignat*}{2}
+        x_{t} &= (1+g_t)^{h}\cdot x_{t-h} \\ 
+        x_{t} &= (1+g_t^*)\cdot x_{t-H} \\
+    \intertext{The period-by-period relationship between $x_{t-h}$ and $x_{t-H}$ is given by:}
+        x_{t-h} &= (1+g_{t})^{H-h}\cdot x_{t-H}.
+    \intertext{Combining the first 2 equations yields:}
+        \implies (1+g_t)^h\cdot x_{t-h} &= (1+g_t^*)\cdot x_{t-H}.
+    \end{alignat*}
+    \begin{alignat*}{2}
+    \intertext{Combining with the 3rd equation above yields:}
+        \implies (1+g_t)^{h}(1+g_t)^{H-h}\cdot \frac{x_{t-h}}{x_{t-h}} &= (1+g_t^{*}) \\
+        \implies (1+g_t)^H &= (1+g_t^*) \\
+        \implies (1+g_t) &= (1+g_t^*)^\frac{1}{H} \quad \square
+    \end{alignat*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Derivation of Generalized Annualization Formulas}
+    \label{frame:generalized_annualization}
+    \APButton{frame:annualizing_growth_rates}{Back}{1}
+    The consecutive period-by-period growth rate formula is:
+    \begin{alignat*}{2}
+    x_{t} &= (1+g_{t}) \cdot x_{t-1} \\
+    \intertext{Between two arbitrary periods $x_{t-1}$ and $x_{t}$, this formula is:}
+    x_{t} &= (1+g_t)^h\cdot x_{t-h} \\ 
+    \intertext{Combining with the result from the previous slide yields}
+    x_t &= (1+g_{t}^{*})^\frac{h}{H}\cdot x_{t-h} \\
+    \implies g_t^* &= \left(\frac{x_t}{x_{t-h}}\right)^\frac{H}{h}-1 \\
+    \intertext{Rearranging, taking logarithms, and using the Taylor expansion yields the log-difference version of annualization.}
+    \ln(1+g_t^*) &= \frac{H}{h}(\ln(x_t)-\ln(x_{t-h})) \\
+    \implies g_t^* &\approx \frac{H}{h}(\ln(x_t)-\ln(x_{t-h}))
+    \end{alignat*}
+\end{frame}
+
+\begin{frame}
+    \label{frame:AR1_unconditional_mean}
+    \APButton{frame:AR_processes}{Back}{1}
+    \frametitle{Derivation of Unconditional Mean \& Variance of AR(1) Processes}
+    Let $y_t = \theta + \phi y_{t-1} + \varepsilon_t,\ \varepsilon_t \underset{\text{I.I.D.}}{\sim} \mathcal{N}(0, \sigma^2_\varepsilon),~0<\phi<1$. Then
+    \begin{alignat*}{2}
+        \mathbb{E}\left[y_t\right] &= \mathbb{E}\left[\theta + \phi y_{t-1} + \varepsilon_t\right] \\
+        &= \mathbb{E}\left[\theta\right] + \mathbb{E}\left[\phi y_{t-1}\right] + \mathbb{E}\left[\varepsilon_t\right] \\
+        &= \theta + \phi \mathbb{E}\left[y_{t-1}\right] + 0 \\
+        \implies \mathbb{E}\left[y_t\right] &= \theta + \phi\mathbb{E}\left[y_{t-1}\right]
+    \intertext{Since $\mathbb{E}\left[y_t\right] = \mathbb{E}\left[y_{t-1}\right]$, rearranging terms yields:}
+        \mathbb{E}\left[y_t\right] - \phi \mathbb{E}\left[y_{t-1}\right] &= \theta \\
+        (1-\phi)\mathbb{E}\left[y_t\right] &= \theta \\
+        \mathbb{E}\left[y_t\right] &= \frac{\theta}{(1-\phi)} \quad \square
+    \end{alignat*}
+\end{frame}
+
+\begin{frame}
+    \label{frame:AR1_unconditional_variance}
+    \APButton{frame:AR_processes}{Back}{1}
+    \frametitle{Derivation of Unconditional Variance of AR(1) Processes}
+    Let $y_t = \theta + \phi y_{t-1} + \varepsilon_t,\ \varepsilon_t \underset{\text{I.I.D.}}{\sim} \mathcal{N}(0, \sigma^2_\varepsilon),~0<\phi<1$. Then
+    \begin{alignat*}{2}
+    \mathbb{V}\left[y_t\right] &= \mathbb{V}\left[\theta + \phi y_{t-1} + \varepsilon_t \right] \\
+    &= \mathbb{V}\left[\theta\right] + \mathbb{V}\left[\phi y_{t-1}\right] + \mathbb{V}\left[\varepsilon_t \right] \\
+    &= 0 + \phi^2\mathbb{V}\left[y_{t-1}\right] + \sigma^2_\varepsilon \\ 
+    \implies \mathbb{V}\left[y_t\right] &= \phi^2\mathbb{V}\left[y_{t-1}\right] + \sigma^2_\varepsilon
+    \intertext{Since $\mathbb{V}\left[y_t\right] = \mathbb{V}\left[y_{t-1}\right]$, rearranging terms yields:}
+    \mathbb{V}\left[y_t\right] - \phi^2\mathbb{V}\left[y_{t-1}\right] & = \sigma^2_\varepsilon \\
+    (1-\phi^2)\mathbb{V}\left[y_t\right] &= \sigma^2_\varepsilon \\
+    \mathbb{V}\left[y_t\right] &= \frac{\sigma^2_\varepsilon}{(1-\phi^2)} \quad \square
+    \end{alignat*}
+\end{frame}
+
+\section{Data Sources}
+\begin{frame}
+    \frametitle{Illustrative Figure Sources}
+    The data used in this presentation is open-source and comes from the following sources.
+    \begin{itemize}
+        \item PCEPI: PCE Price Index
+        \begin{itemize}
+            \item Source: U.S. Bureau of Economic Analysis
+            \item Retrieved from: FRED — PCEPI
+        \end{itemize}
+        \item UR: Unemployment Rate
+        \begin{itemize}
+            \item Source: U.S. Bureau of Labor Statistics
+            \item Retrieved from: FRED — UNRATE
+        \end{itemize}
+        \item FFR: Federal Funds Effective Rate
+        \begin{itemize}
+            \item Source: Federal Reserve Board of Governors
+            \item Retrieved from: FRED — FEDFUNDS
+        \end{itemize}
+        \item GDP: Real Gross Domestic Product
+        \begin{itemize}
+            \item Source: U.S. Bureau of Economic Analysis
+            \item Retrieved from: FRED — GDPC1
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Response Variable Sources}
+    \begin{itemize}
+        \item SP500: S\&P500 Composite Stock Market Index
+        \begin{itemize}
+            \item Source: Standard \& Poor's
+            \item Retrieved from: FRED — SP500 (from 2016 onwards)
+            \item Retrieved from: Robert Shiller's website (prior to 2016): https://shillerdata.com/
+        \end{itemize}
+        \item employment: Total Nonfarm Payrolls
+        \begin{itemize}
+            \item Source: U.S. Bureau of Labor Statistics
+            \item Retrieved from: FRED — PAYEMS
+        \end{itemize}
+        \item PCEPIX: Core PCE Price Index
+        \begin{itemize}
+            \item Source: U.S. Bureau of Economic Analysis
+            \item Retrieved from: FRED — PCEPILFE
+        \end{itemize}
+        \item GZCS: Gilchrist \& Zakrajšek Credit Spread
+        \begin{itemize}
+            \item Source: Federal Reserve Board of Governors
+            \item Retrieved from: Federal Reserve Board of Governors Website
+        \end{itemize}
+        \item corporate\_bonds: Nonfinancial Corporate Bonds
+        \begin{itemize}
+            \item Source: Federal Reserve Board of Governors
+            \item Retrieved from: FRED — CBLBSNNCB
+        \end{itemize}
+        \item house\_prices: U.S. House Price Index
+        \begin{itemize}
+            \item Source: U.S. Federal Housing Finance Agency
+            \item Retrieved from: FRED — USSTHPI
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Impulse Variable (Shock) Sources}
+    \begin{itemize}
+        \item NOT\_MP: Monetary policy shock from \textcite{NunesOzdagliTang2022}
+        \item K\_OSN: Oil Supply News Shocks from \textcite{Kanzig2021}
+    \end{itemize}
+\end{frame}
+
+\end{document}
