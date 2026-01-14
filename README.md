@@ -3,7 +3,7 @@
 [Ara Patvakanian](https://AraPatvakanian.GitHub.io) \
 2026.01.12
 
-This GitHub repository contains teaching material including notes, slides, code, data, and figures for researchers working in economics. I hope to add more modules and while improving and expanding existing ones in the future.
+This GitHub repository contains teaching material including notes, slides, code, data, and figures for researchers working in economics. I hope to add more modules in the future while improving and expanding existing ones.
 
 All errors are my own. If you find an error or have a comment or suggestion, please contact me at [arap15@upenn.edu](mailto:arap15@upenn.edu).
 
