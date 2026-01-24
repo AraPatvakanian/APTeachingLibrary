@@ -102,10 +102,10 @@ if `run_LPs' {
 		local EEE = "`=year(dofq(`ee'))'"
 		local SS = `ss'+`control_lags' // Start of LHS
 		local EE = `ee'-`horizons' // End of LHS
-		di as result %tm `ss'
-		di as result %tm `ee'
-		di as result %tm `SS'
-		di as result %tm `EE'
+		di as result %tq `ss'
+		di as result %tq `ee'
+		di as result %tq `SS'
+		di as result %tq `EE'
 	foreach mm of varlist `impulse_variables' {
 	foreach rr of varlist `response_variables' {
 		local graph_title : variable label `rr'
@@ -119,7 +119,7 @@ if `run_LPs' {
 		else local rr_lag ""
 		
         * Lags of Impulse Variable
-        if `impulse_lags' > 0 local mm_lags "L(1/`impulse_lags').`rr' "
+        if `impulse_lags' > 0 local mm_lags "L(1/`impulse_lags').`mm' "
         else local mm_lag ""
 		
 		* Generate Response at Different Horizons (LHS)
@@ -136,9 +136,9 @@ if `run_LPs' {
 		di as result "Specification: DF_`rr'_hh `mm' `mm_lag' `rr_lag' `specification'"
 		* Estimate the LPs
 		foreach hh of numlist 0/`xx' {
-			// qui regress DF_`rr'_`hh' `mm' `mm_lag' `rr_lag' `specification' ///
+			// qui regress DF_`rr'_`hh' `mm' `mm_lags' `rr_lags' `specification' ///
 			//	if inrange(date,`SS',`EE'), robust coeflegend
-			qui newey DF_`rr'_`hh' `mm' `mm_lag' `rr_lag' `specification' ///
+			qui newey DF_`rr'_`hh' `mm' `mm_lags' `rr_lags' `specification' ///
 				if inrange(date,`SS',`EE'), level(95) lag(5) // coeflegend
 			
 			qui gen B_`hh' = _b[c.`mm']
