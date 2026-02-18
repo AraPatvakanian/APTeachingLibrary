@@ -1,6 +1,8 @@
 # [APTeachingLibrary](https://github.com/AraPatvakanian/APTeachingLibrary) Changelog
 
 ## Time Series Econometrics
+**2026.02.17** \
+    – Aesthetic Changes
 **2026.01.24** \
     – Fixed Dates Stored as Locals in LP Code
 **2026.01.15** \
